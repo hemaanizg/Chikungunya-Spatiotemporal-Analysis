@@ -1,0 +1,4205 @@
+---
+title: "Analysing Data of Zika and Chikungunya Cases from 2015 to 2025 in Brazil"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importing the Data
+
+```{r}
+library(read.dbc)
+
+CHIK15 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR15.dbc")
+CHIK16 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR16.dbc")
+CHIK17 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR17.dbc")
+CHIK18 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR18.dbc")
+CHIK19 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR19.dbc")
+CHIK20 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR20.dbc")
+CHIK21 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR21.dbc")
+CHIK22 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR22.dbc")
+CHIK23 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR23.dbc")
+CHIK24 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKdata/CHIKBR24.dbc")
+CHIK25 <- read.dbc("/Users/wuchangpengyuyan/Downloads/CHIKBR25.dbc")
+
+ZIKA16 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR16.dbc")
+ZIKA17 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR17.dbc")
+ZIKA18 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR18.dbc")
+ZIKA19 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR19.dbc")
+ZIKA20 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR20.dbc")
+ZIKA21 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR21.dbc")
+ZIKA22 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR22.dbc")
+ZIKA23 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR23.dbc")
+ZIKA24 <- read.dbc("/Users/wuchangpengyuyan/Downloads/zikadata/ZIKABR24.dbc")
+ZIKA25 <- read.dbc("/Users/wuchangpengyuyan/Downloads/ZIKABR25.dbc")
+```
+
+Combining The Data
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+# ==== 1. Import and combine raw data ====
+chik_list <- list(CHIK15, CHIK16, CHIK17, CHIK18, CHIK19, CHIK20, CHIK21, CHIK22, CHIK23, CHIK24, CHIK25)
+zika_list <- list(ZIKA16, ZIKA17, ZIKA18, ZIKA19, ZIKA20, ZIKA21, ZIKA22, ZIKA23, ZIKA24, ZIKA25)
+
+Chik_total <- bind_rows(chik_list)
+Zika_total <- bind_rows(zika_list)
+
+# ==== 2. Convert date columns and extract year ====
+Chik_total$DT_SIN_PRI <- as.Date(Chik_total$DT_SIN_PRI)
+Zika_total$DT_SIN_PRI <- as.Date(Zika_total$DT_SIN_PRI)
+
+Chik_total$year_all <- as.numeric(format(Chik_total$DT_SIN_PRI, "%Y"))
+Zika_total$year_all <- as.numeric(format(Zika_total$DT_SIN_PRI, "%Y"))
+
+# ==== 3. Plot all-time case trend (using CLASSI_FIN == 13 for Chikungunya, 1 for Zika) ====
+chik_cases_by_year <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(year_all), year_all >= 1902, year_all <= 2025) %>%
+  count(year_all) %>%
+  mutate(virus = "Chikungunya")
+
+
+zika_cases_by_year <- Zika_total %>%
+  filter(CLASSI_FIN == 1, !is.na(year_all), year_all >= 1902, year_all <= 2025) %>%
+  count(year_all) %>%
+  mutate(virus = "Zika")
+
+cases_by_year_all <- bind_rows(chik_cases_by_year, zika_cases_by_year)
+
+ggplot(cases_by_year_all, aes(x = year_all, y = n, fill = virus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_x_continuous(breaks = seq(1902, 2025, 5)) +
+  labs(
+    title = "Zika (1) and Chikungunya (13) Cases by Year (1902–2025)",
+    x = "Year",
+    y = "Number of Cases",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Bar chart showing annual confirmed case counts for Zika (blue) and Chikungunya (red) from 1902 to 2025. The plot highlights the absence of reported cases for most of the 20th century and the sharp rise in cases after 2015, corresponding to recent epidemic outbreaks in Brazil.
+
+
+# ==== 4. Filter confirmed cases from 2015 to 2025 for further analysis ====
+Chik_total <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1,13),
+         !is.na(DT_SIN_PRI),
+         DT_SIN_PRI >= as.Date("2015-01-01"),
+         DT_SIN_PRI <= as.Date("2025-12-31"))
+
+Zika_total <- Zika_total %>%
+  filter(CLASSI_FIN == 1,
+         !is.na(DT_SIN_PRI),
+         DT_SIN_PRI >= as.Date("2015-01-01"),
+         DT_SIN_PRI <= as.Date("2025-12-31"))
+
+# ==== 5. Plot recent confirmed cases (2015–2025) ====
+Chik_total$year <- format(Chik_total$DT_SIN_PRI, "%Y")
+Zika_total$year <- format(Zika_total$DT_SIN_PRI, "%Y")
+
+chik_recent_cases <- Chik_total %>%
+  count(year) %>%
+  mutate(virus = "Chikungunya")
+
+zika_recent_cases <- Zika_total %>%
+  count(year) %>%
+  mutate(virus = "Zika")
+
+cases_recent <- bind_rows(chik_recent_cases, zika_recent_cases)
+
+ggplot(cases_recent, aes(x = year, y = n, fill = virus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Confirmed Zika and Chikungunya Cases (2015–2025)",
+    x = "Year",
+    y = "Number of Confirmed Cases",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Bar chart comparing annual confirmed case counts for Zika (blue) and Chikungunya (red) between 2015 and 2025. The plot highlights the peak of the Zika epidemic in 2016, followed by consistently higher Chikungunya case counts in subsequent years.
+
+# year-month 
+Zika_total$month <- format(as.Date(Zika_total$DT_SIN_PRI), "%m")
+Zika_total$year_month <- format(as.Date(Zika_total$DT_SIN_PRI), "%Y-%m")
+
+Chik_total$month <- format(as.Date(Chik_total$DT_SIN_PRI), "%m")
+Chik_total$year_month <- format(as.Date(Chik_total$DT_SIN_PRI), "%Y-%m")
+
+zika_monthly <- Zika_total %>%
+  filter(CLASSI_FIN == 1) %>%
+  group_by(year = format(DT_SIN_PRI, "%Y"), month = format(DT_SIN_PRI, "%m")) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  mutate(virus = "Zika")
+
+chik_monthly <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13)) %>%
+  group_by(year = format(DT_SIN_PRI, "%Y"), month = format(DT_SIN_PRI, "%m")) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  mutate(virus = "Chikungunya")
+
+
+monthly_combined <- bind_rows(zika_monthly, chik_monthly)
+
+monthly_combined$month <- factor(monthly_combined$month, 
+                                  levels = sprintf("%02d", 1:12), 
+                                  labels = month.abb, 
+                                  ordered = TRUE)
+
+ggplot(monthly_combined, aes(x = month, y = cases, fill = virus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ year, ncol = 4) +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Monthly Confirmed Cases of Zika and Chikungunya (Seasonal Trends)",
+    x = "Month",
+    y = "Number of Confirmed Cases",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 9),
+    plot.title = element_text(hjust = 0.5, size = 14)
+  )
+
+# Faceted bar charts showing monthly confirmed case counts for Zika (green) and Chikungunya (orange) from 2015 to 2025. The plots reveal clear seasonal patterns, with peaks typically occurring in March, April or May. The Zika epidemic surge is concentrated in early 2016, while Chikungunya exhibits recurring seasonal outbreaks in multiple years.
+
+```
+
+
+
+
+Analysing the Severity of Zika and Chikungunya (Deaths)
+The cases are marked follow the "Documento de Requisitos" for Dengue/Chikungunya
+1-Cura
+2- Óbito por Zika/Chikungunya
+3- Óbito por outras causas
+4 – Óbito em investigação
+9- Ignorado 
+
+```{r}
+
+# Make sure the Date format（Start from Symptoms occur）
+Chik_total$DT_SIN_PRI <- as.Date(Chik_total$DT_SIN_PRI)
+Zika_total$DT_SIN_PRI <- as.Date(Zika_total$DT_SIN_PRI)
+
+# Extract Yearss
+Chik_total$year <- format(Chik_total$DT_SIN_PRI, "%Y")
+Zika_total$year <- format(Zika_total$DT_SIN_PRI, "%Y")
+
+# Filter the death cases（Caused by zika or chik）
+chik_death <- Chik_total %>% filter(EVOLUCAO == 2)
+zika_death <- Zika_total %>% filter(EVOLUCAO == 2)
+
+# Death Cases by years
+chik_death_yearly <- chik_death %>%
+  group_by(year) %>%
+  summarise(deaths = n()) %>%
+  mutate(virus = "Chikungunya")
+
+zika_death_yearly <- zika_death %>%
+  group_by(year) %>%
+  summarise(deaths = n()) %>%
+  mutate(virus = "Zika")
+
+# Combine the data
+death_summary <- bind_rows(chik_death_yearly, zika_death_yearly)
+
+
+#Years+ Death cases
+full_years <- sort(unique(c(chik_death_yearly$year, zika_death_yearly$year)))
+full_combo <- expand.grid(
+  year = full_years,
+  virus = c("Zika", "Chikungunya")
+)
+
+death_summary_complete <- full_combo %>%
+  left_join(death_summary, by = c("year", "virus")) %>%
+  mutate(deaths = ifelse(is.na(deaths), 0, deaths))
+
+
+#Combined figure
+ggplot(death_summary_complete, aes(x = year, y = deaths, fill = virus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Annual Deaths Caused by Zika and Chikungunya (EVOLUCAO = 2)",
+    x = "Year",
+    y = "Number of Deaths",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Annual deaths caused by Zika and Chikungunya in Brazil (2015–2025). Chikungunya (orange) accounts for the vast majority of deaths across the period, with a pronounced peak in 2016 (~185 deaths) followed by another high in 2017 (~125 deaths) and a resurgence in 2024 (~135 deaths). Zika (green) deaths are comparatively rare, peaking in 2016 (~45 deaths) and dropping to single digits in most other years.
+
+
+# Death by month~year
+
+chik_death_monthly <- Chik_total %>%
+  filter(EVOLUCAO == 2) %>%
+  mutate(
+    year = format(DT_SIN_PRI, "%Y"),
+    month = format(DT_SIN_PRI, "%m"),
+    month = factor(month, levels = sprintf("%02d", 1:12), labels = month.abb, ordered = TRUE),
+    virus = "Chikungunya"
+  ) %>%
+  group_by(year, month, virus) %>%
+  summarise(deaths = n(), .groups = "drop")
+
+zika_death_monthly <- Zika_total %>%
+  filter(EVOLUCAO == 2) %>%
+  mutate(
+    year = format(DT_SIN_PRI, "%Y"),
+    month = format(DT_SIN_PRI, "%m"),
+    month = factor(month, levels = sprintf("%02d", 1:12), labels = month.abb, ordered = TRUE),
+    virus = "Zika"
+  ) %>%
+  group_by(year, month, virus) %>%
+  summarise(deaths = n(), .groups = "drop")
+
+
+death_monthly_combined <- bind_rows(chik_death_monthly, zika_death_monthly)
+
+
+ggplot(death_monthly_combined, aes(x = month, y = deaths, fill = virus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ year, ncol = 4) +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Monthly Deaths by Virus (Zika vs Chikungunya)",
+    x = "Month",
+    y = "Number of Deaths",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 9),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+# Monthly deaths by Zika and Chikungunya in Brazil (2015–2025). Chikungunya (orange) shows pronounced seasonal mortality peaks, most notably in early 2016 (Feb–Apr, >35 deaths/month), early 2017 (Feb–Mar, >40 deaths), and early 2024 (Feb, ~32 deaths). Smaller surges appear in 2019, 2022, and 2023. Zika (green) mortality is minimal, with a visible but modest rise in early 2016 (~8–10 deaths/month) and isolated small counts in other years. Deaths for both viruses are concentrated in the first half of outbreak years, indicating strong seasonality.
+
+
+```
+
+
+Age distribution of all/confirmed/discarded/suspected cases in Zika and Chikungunya.
+
+The age is recorded by 4 digits, the first digit follow the "Documento de Requisitos" 
+1. Hour
+2. Day
+3. Month
+4. Year
+
+```{r}
+
+# 1. Categorize case status
+Chik_total <- Chik_total %>%
+  mutate(case_status = case_when(
+    EVOLUCAO == 2 ~ "Death",
+    CLASSI_FIN %in% c(1, 13) ~ "Confirmed",
+    TRUE ~ "Other"
+  ))
+
+Zika_total <- Zika_total %>%
+  mutate(case_status = case_when(
+    EVOLUCAO == 2 ~ "Death",
+    CLASSI_FIN == 1 ~ "Confirmed",
+    TRUE ~ "Other"
+  ))
+
+# 2. Decode age
+decode_age_years <- function(NU_IDADE_N) {
+  unit_code <- floor(NU_IDADE_N / 1000)
+  value <- NU_IDADE_N %% 1000
+  dplyr::case_when(
+    unit_code == 1 ~ value / (24 * 365),  # Hours
+    unit_code == 2 ~ value / 365,         # Days
+    unit_code == 3 ~ value / 12,          # Months
+    unit_code == 4 ~ value,               # Years
+    TRUE ~ NA_real_
+  )
+}
+
+Chik_total$age_years <- decode_age_years(Chik_total$NU_IDADE_N)
+Zika_total$age_years <- decode_age_years(Zika_total$NU_IDADE_N)
+
+# 3. Add virus label and combine datasets
+Chik_total$virus <- "Chikungunya"
+Zika_total$virus <- "Zika"
+combined_all <- bind_rows(Chik_total, Zika_total)
+
+# 4. Load ggplot2
+library(ggplot2)
+
+# ==== Plot 1: Age distribution of confirmed cases only ====
+ggplot(
+  combined_all %>% 
+    filter(case_status == "Confirmed", !is.na(age_years), age_years <= 120),
+  aes(x = age_years, fill = virus)
+) +
+  geom_histogram(binwidth = 5, position = "identity", alpha = 0.6, color = "black") +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Age Distribution of Confirmed Zika and Chikungunya Cases",
+    x = "Age (years)",
+    y = "Number of Cases",
+    fill = "Virus"
+  ) +
+  theme_minimal()
+
+# ==== Plot 2: Age distribution of death cases only ====
+ggplot(
+  combined_all %>% 
+    filter(case_status == "Death", !is.na(age_years), age_years <= 120),
+  aes(x = age_years, fill = virus)
+) +
+  geom_histogram(binwidth = 5, position = "identity", alpha = 0.6, color = "black") +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Age Distribution of Deaths Caused by Zika and Chikungunya",
+    x = "Age (years)",
+    y = "Number of Deaths",
+    fill = "Virus"
+  ) +
+  theme_minimal()
+
+#  Add age group column (run this BEFORE the stacked bar plots)
+combined_all <- combined_all %>%
+  mutate(age_group = case_when(
+    age_years >= 0 & age_years < 1    ~ "< 1",
+    age_years >= 1 & age_years < 5    ~ "1–4",
+    age_years >= 5 & age_years < 10   ~ "5–9",
+    age_years >= 10 & age_years < 15  ~ "10–14",
+    age_years >= 15 & age_years < 20  ~ "15–19",
+    age_years >= 20 & age_years < 25  ~ "20–24",
+    age_years >= 25 & age_years < 30  ~ "25–29",
+    age_years >= 30 & age_years < 35  ~ "30–34",
+    age_years >= 35 & age_years < 40  ~ "35–39",
+    age_years >= 40 & age_years < 45  ~ "40–44",
+    age_years >= 45 & age_years < 50  ~ "45–49",
+    age_years >= 50 & age_years < 55  ~ "50–54",
+    age_years >= 55 & age_years < 60  ~ "55–59",
+    age_years >= 60 & age_years < 65  ~ "60–64",
+    age_years >= 65 & age_years < 70  ~ "65–69",
+    age_years >= 70 & age_years < 75  ~ "70–74",
+    age_years >= 75 & age_years < 80  ~ "75–79",
+    age_years >= 80 & age_years < 85  ~ "80–84",
+    age_years >= 85 & age_years < 90  ~ "85–89",
+    age_years >= 90 & age_years < 95  ~ "90–94",
+    age_years >= 95 & age_years < 100 ~ "95–99",
+    age_years >= 100 & age_years <= 120 ~ "100+",
+    TRUE ~ NA_character_
+  ))
+# Reorder age_group as a factor with correct levels
+age_levels <- c(
+  "< 1","1–4", "5–9", "10–14", "15–19", "20–24", "25–29", "30–34", "35–39",
+  "40–44", "45–49", "50–54", "55–59", "60–64", "65–69", "70–74", "75–79",
+  "80–84", "85–89", "90–94", "95–99", "100+"
+)
+
+combined_all <- combined_all %>%
+  mutate(age_group = factor(age_group, levels = age_levels, ordered = TRUE))
+
+
+#  Age Group Stacked Bar: Confirmed Cases (%)
+confirmed_pct <- combined_all %>%
+  filter(case_status == "Confirmed", !is.na(age_group)) %>%
+  group_by(virus, age_group) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(virus) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2))
+
+ggplot(confirmed_pct, aes(x = virus, y = percentage, fill = age_group)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Age Group Composition of Confirmed Cases (%)",
+    x = "Virus",
+    y = "Percentage of Confirmed Cases",
+    fill = "Age Group"
+  ) +
+  theme_minimal()
+
+
+#  Age Group Stacked Bar: Deaths (%)
+death_pct <- combined_all %>%
+  filter(case_status == "Death", !is.na(age_group)) %>%
+  group_by(virus, age_group) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(virus) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2))
+
+ggplot(death_pct, aes(x = virus, y = percentage, fill = age_group)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Age Group Composition of Deaths (%)",
+    x = "Virus",
+    y = "Percentage of Deaths",
+    fill = "Age Group"
+  ) +
+  theme_minimal()
+
+
+#CFR
+
+confirmed_all <- combined_all %>%
+  filter(
+    (
+      virus == "Chikungunya" & CLASSI_FIN %in% c(1,13)
+    ) |
+    (
+      virus == "Zika" & CLASSI_FIN == 1
+    ),
+    !is.na(age_group)
+  )
+
+cfr_by_age <- confirmed_all %>%
+  group_by(age_group, virus) %>%
+  summarise(
+    confirmed = n(),
+    deaths = sum(EVOLUCAO == 2, na.rm = TRUE),
+    CFR = round(100 * deaths / confirmed, 3),
+    .groups = "drop"
+  )
+
+ggplot(cfr_by_age,
+       aes(x = age_group, y = CFR, fill = virus)) +
+  geom_bar(stat = "identity",
+           position = "dodge") +
+  labs(
+    title = "Case Fatality Rate by Age Group",
+    x = "Age Group",
+    y = "CFR (%)",
+    fill = "Virus"
+  ) +
+  theme_minimal()
+
+#race by year cases
+library(dplyr); library(ggplot2)
+
+combined_all$year <- format(as.Date(combined_all$DT_SIN_PRI), "%Y")
+
+age_year_summary <- combined_all %>%
+  filter(case_status == "Confirmed",
+         !is.na(age_group),
+         year >= "2015", year <= "2025") %>%
+  group_by(year, virus, age_group) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(year, virus) %>%
+  mutate(percentage = round(100 * n / sum(n), 2)) %>%
+  ungroup()
+
+ggplot(age_year_summary, aes(x = year, y = percentage, fill = age_group)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ virus) +
+  labs(
+    title = "Age-Group Composition per Year (2015–2025, Confirmed Only)",
+    x = "Year", y = "Percentage of Confirmed Cases", fill = "Age Group"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+
+
+wavelet analysis
+```{r}
+
+
+# ============================================================
+# 0. Libraries
+# ============================================================
+
+library(dplyr)
+library(lubridate)
+library(WaveletComp)
+
+# ============================================================
+# 1. Create National Monthly Time Series (2015–2025)
+# ============================================================
+
+monthly_cases <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    !is.na(DT_NOTIFIC)
+  ) %>%
+  mutate(
+    date = as.Date(DT_NOTIFIC),
+    year = year(date),
+    month = month(date)
+  ) %>%
+  filter(year >= 2015, year <= 2025) %>%
+  group_by(year, month) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  arrange(year, month)
+
+# Fill missing months with 0
+all_months <- data.frame(
+  year = rep(2015:2025, each = 12),
+  month = rep(1:12, times = length(2015:2025))
+)
+
+monthly_cases <- all_months %>%
+  left_join(monthly_cases, by = c("year", "month")) %>%
+  mutate(cases = ifelse(is.na(cases), 0, cases)) %>%
+  arrange(year, month)
+
+# ============================================================
+# 2. Wavelet Transform
+# ============================================================
+
+wavelet_data <- data.frame(
+  time = 1:nrow(monthly_cases),
+  cases = monthly_cases$cases
+)
+
+wt <- analyze.wavelet(
+  wavelet_data,
+  my.series = "cases",
+  loess.span = 0,
+  dt = 1/12,
+  dj = 1/20,
+  lowerPeriod = 2/12,
+  upperPeriod = 5,
+  make.pval = TRUE,
+  n.sim = 200
+)
+
+# ============================================================
+# 3. Create Publication-Ready Scalogram
+# ============================================================
+
+png("Wavelet_Scalogram_Chikungunya_2015_2025.png",
+    width = 1600, height = 1200, res = 200)
+
+wt.image(
+  wt,
+  color.key = "interval",
+  n.levels = 250,
+  legend.params = list(lab = "Wavelet Power"),
+  show.date = FALSE,
+  periodlab = "Period (Years)",
+  timelab = "Month",
+  main = "Wavelet Power Spectrum of Monthly Chikungunya Cases\nBrazil, 2015–2025",
+  siglvl = 0.05,
+)
+
+# Custom x-axis with real years
+axis(
+  side = 1,
+  at = seq(1, nrow(monthly_cases), by = 12),
+  labels = 2015:2025
+)
+
+dev.off()
+
+# ============================================================
+# 4. Global Wavelet Spectrum (Optional but Included)
+# ============================================================
+
+png("Global_Wavelet_Spectrum_Chikungunya_2015_2025.png",
+    width = 1000, height = 800, res = 200)
+
+wt.avg(
+  wt,
+  main = "Global Wavelet Spectrum\nBrazil 2015–2025"
+)
+
+dev.off()
+
+# ============================================================
+# 5. Save Wavelet Object
+# ============================================================
+
+saveRDS(wt, "wavelet_result_2015_2025.rds")
+
+```
+
+
+
+Demographics distribution of Zika/Chikungunya cases
+The cases are marked follow the "Documento de Requisitos"
+1- branca
+2- preta
+3- amarela
+4- parda
+5- indígena
+9 Ignorado 
+
+```{r}
+
+
+# Demographics Distribution – Confirmed Cases Only (CLASSI_FIN 1,13)
+race_dist_by_virus <- combined_all %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(CS_RACA)) %>%
+  group_by(virus, CS_RACA) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(
+    race_label = case_when(
+      CS_RACA == 1 ~ "White",
+      CS_RACA == 2 ~ "Black",
+      CS_RACA == 3 ~ "Asian",
+      CS_RACA == 4 ~ "Pardo (Mixed)",
+      CS_RACA == 5 ~ "Indigenous",
+      CS_RACA == 9 ~ "Unknown",
+      TRUE ~ "Unspecified"
+    )
+  ) %>%
+  group_by(virus) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2))
+
+ggplot(race_dist_by_virus, aes(x = race_label, y = n, fill = race_label)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ virus) +
+  labs(
+    title = "Demographics Distribution by Virus (Confirmed Cases Only)",
+    x = "Demographics",
+    y = "Number of Confirmed Cases"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+
+# Demographics Distribution Over Time (Confirmed Cases Only)
+combined_all$year <- format(as.Date(combined_all$DT_SIN_PRI), "%Y")
+
+race_year_summary <- combined_all %>%
+  filter(CLASSI_FIN %in% c(1, 13), year >= "2015", year <= "2025", !is.na(CS_RACA)) %>%
+  group_by(year, virus, CS_RACA) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(
+    race_label = case_when(
+      CS_RACA == 1 ~ "White",
+      CS_RACA == 2 ~ "Black",
+      CS_RACA == 3 ~ "Asian",
+      CS_RACA == 4 ~ "Pardo (Mixed)",
+      CS_RACA == 5 ~ "Indigenous",
+      CS_RACA == 9 ~ "Unknown",
+      TRUE ~ "Unspecified"
+    )
+  ) %>%
+  group_by(year, virus) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2)) %>%
+  ungroup()
+
+ggplot(race_year_summary, aes(x = year, y = percentage, fill = race_label)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ virus) +
+  labs(
+    title = "Ethnicity Distribution per Year (2015–2025, Confirmed Only)",
+    x = "Year",
+    y = "Percentage of Confirmed Cases",
+    fill = "Demographics"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Race vs Deaths (EVOLUCAO == 2)
+death_race_summary <- combined_all %>%
+  filter(EVOLUCAO == 2, !is.na(CS_RACA)) %>%
+  group_by(virus, CS_RACA) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(
+    race_label = case_when(
+      CS_RACA == 1 ~ "White",
+      CS_RACA == 2 ~ "Black",
+      CS_RACA == 3 ~ "Asian",
+      CS_RACA == 4 ~ "Pardo (Mixed)",
+      CS_RACA == 5 ~ "Indigenous",
+      CS_RACA == 9 ~ "Unknown",
+      TRUE ~ "Unspecified"
+    )
+  ) %>%
+  group_by(virus) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2)) %>%
+  ungroup()
+
+ggplot(death_race_summary, aes(x = race_label, y = n, fill = race_label)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ virus) +
+  labs(
+    title = "Demographics Distribution among Deaths (EVOLUCAO = 2)",
+    x = "Demographics",
+    y = "Number of Deaths"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+
+# Case Fatality Rate by Demographics
+race_case_total <- combined_all %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(CS_RACA)) %>%
+  group_by(virus, CS_RACA) %>%
+  summarise(total_cases = n(), .groups = "drop")
+
+race_death_total <- combined_all %>%
+  filter(EVOLUCAO == 2, !is.na(CS_RACA)) %>%
+  group_by(virus, CS_RACA) %>%
+  summarise(deaths = n(), .groups = "drop")
+
+race_cfr <- left_join(race_case_total, race_death_total, by = c("virus", "CS_RACA")) %>%
+  mutate(
+    deaths = ifelse(is.na(deaths), 0, deaths),
+    CFR = round(deaths / total_cases * 100, 2),
+    race_label = case_when(
+      CS_RACA == 1 ~ "White",
+      CS_RACA == 2 ~ "Black",
+      CS_RACA == 3 ~ "Asian",
+      CS_RACA == 4 ~ "Pardo (Mixed)",
+      CS_RACA == 5 ~ "Indigenous",
+      CS_RACA == 9 ~ "Unknown",
+      TRUE ~ "Unspecified"
+    )
+  )
+
+ggplot(
+  race_cfr %>% filter(CS_RACA %in% 1:5),
+  aes(x = race_label, y = CFR, fill = race_label)
+) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ virus) +
+  labs(
+    title = "Case Fatality Rate by Demographics (Confirmed Cases Only, EVOLUCAO = 2)",
+    x = "Demographics",
+    y = "Case Fatality Rate (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+
+# ==== Overall CFR for Zika and Chikungunya ====
+overall_confirmed <- combined_all %>%
+  filter(case_status == "Confirmed") %>%
+  count(virus, name = "total_cases")
+
+overall_deaths <- combined_all %>%
+  filter(case_status == "Death") %>%
+  count(virus, name = "deaths")
+
+overall_cfr <- left_join(overall_confirmed, overall_deaths, by = "virus") %>%
+  mutate(
+    deaths = ifelse(is.na(deaths), 0, deaths),
+    CFR = round((deaths / total_cases) * 100, 2)
+  )
+
+print(overall_cfr)
+
+# Optional: Visualize overall CFR
+ggplot(overall_cfr, aes(x = virus, y = CFR, fill = virus)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Overall Case Fatality Rate by Virus (2015–2025)",
+    x = "Virus",
+    y = "CFR (%)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+Geographical mapping
+References: https://www.ibge.gov.br/explica/codigos-dos-municipios.php
+
+```{r}
+# === Required libraries ===
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(geobr)
+library(RColorBrewer)
+
+# === Load Brazilian state shapefile and join with population and density ===
+brazil_states <- read_state(code_state = "all", year = 2020, showProgress = FALSE)
+
+state_population <- tibble::tibble(
+  abbrev_state = c("SP", "MG", "RJ", "BA", "PR", "RS", "PE", "CE", "PA", "SC",
+                   "GO", "MA", "AM", "PB", "ES", "MT", "RN", "PI", "AL", "DF",
+                   "MS", "SE", "RO", "TO", "AC", "AP", "RR"),
+  population = c(45973190, 21322690, 17219680, 14850510, 11824670, 11229920, 
+                 9539030, 9233660, 8664310, 8058440, 7350480, 7010960, 4281210, 
+                 4145040, 4102130, 3836400, 3446070, 3375650, 3220100, 2982820, 
+                 2901900, 2291080, 1746230, 1577340, 880630, 802840, 716790),
+  density = c(6.34, 125.52, 2.63, 2.58, 30.52, 60.33, 493.00, 80.63, 18.46, 19.03,
+              4.01, 7.83, 31.72, 7.02, 78.93, 43.46, 103.83, 9.73, 387.46, 62.74,
+              36.84, 7.34, 2.54, 69.74, 175.73, 97.64, 5.74)
+)
+
+brazil_states <- brazil_states %>%
+  left_join(state_population, by = "abbrev_state")
+
+# === Prepare Year and State Code in Disease Data ===
+Zika_total$year <- format(as.Date(Zika_total$DT_SIN_PRI), "%Y")
+Zika_total$SG_UF_NOT <- as.integer(Zika_total$SG_UF_NOT)
+
+Chik_total$year <- format(as.Date(Chik_total$DT_SIN_PRI), "%Y")
+Chik_total$SG_UF_NOT <- as.integer(Chik_total$SG_UF_NOT)
+
+# === Count Confirmed Cases by Year and State ===
+zika_by_state_year <- Zika_total %>%
+  filter(CLASSI_FIN == 1, year %in% as.character(2015:2025)) %>%
+  group_by(year, SG_UF_NOT) %>%
+  summarise(cases = n(), .groups = "drop")
+
+chik_by_state_year <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), year %in% as.character(2015:2025)) %>%
+  group_by(year, SG_UF_NOT) %>%
+  summarise(cases = n(), .groups = "drop")
+
+
+# === Build Map Data ===
+map_data_zika_yearly <- expand.grid(
+  year = as.character(2015:2025),
+  code_state = brazil_states$code_state
+) %>%
+  mutate(SG_UF_NOT = as.integer(code_state)) %>%
+  left_join(brazil_states, by = "code_state") %>%
+  left_join(zika_by_state_year, by = c("SG_UF_NOT", "year")) %>%
+  mutate(
+    cases = ifelse(is.na(cases), 0, cases),
+    incidence_per_100 = round((cases / population) * 100, 4),
+    burden_incidence_per_density = round(incidence_per_100 / density, 4)
+  )
+
+map_data_chik_yearly <- expand.grid(
+  year = as.character(2015:2025),
+  code_state = brazil_states$code_state
+) %>%
+  mutate(SG_UF_NOT = as.integer(code_state)) %>%
+  left_join(brazil_states, by = "code_state") %>%
+  left_join(chik_by_state_year, by = c("SG_UF_NOT", "year")) %>%
+  mutate(
+    cases = ifelse(is.na(cases), 0, cases),
+    incidence_per_100 = round((cases / population) * 100, 4),
+    burden_incidence_per_density = round(incidence_per_100 / density, 4)
+  )
+
+
+
+# Using the geobr package-->6 municipality code
+muni_sf <- read_municipality(year = 2020) %>%
+  mutate(code_muni6 = substr(as.character(code_muni), 1, 6))
+
+
+Zika_total <- Zika_total %>%
+  mutate(
+    year = format(as.Date(DT_SIN_PRI), "%Y"),
+    code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)
+  )
+
+Chik_total <- Chik_total %>%
+  mutate(
+    year = format(as.Date(DT_SIN_PRI), "%Y"),
+    code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)
+  )
+
+#Count the case number by year and muni code
+zika_muni <- Zika_total %>%
+  filter(CLASSI_FIN == 1, year %in% as.character(2015:2025)) %>%
+  group_by(year, code_muni6) %>%
+  summarise(cases = n(), .groups = "drop")
+
+chik_muni <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), year %in% as.character(2015:2025)) %>%
+  group_by(year, code_muni6) %>%
+  summarise(cases = n(), .groups = "drop")
+
+# Match wit the updated 7 digits code
+muni_lookup <- muni_sf %>%
+  sf::st_drop_geometry() %>%
+  dplyr::select(code_muni, code_muni6)
+
+zika_muni <- zika_muni %>%
+  left_join(muni_lookup, by = "code_muni6") %>%
+  mutate(code_muni = as.numeric(code_muni))
+
+chik_muni <- chik_muni %>%
+  left_join(muni_lookup, by = "code_muni6") %>%
+  mutate(code_muni = as.numeric(code_muni))
+#combine all data together
+map_data_zika <- expand.grid(
+  year = as.character(2015:2025),
+  code_muni = unique(muni_sf$code_muni)
+) %>%
+  left_join(muni_sf, by = "code_muni") %>%
+  left_join(zika_muni, by = c("code_muni", "year")) %>%
+  mutate(cases = ifelse(is.na(cases), 0, cases))
+
+map_data_chik <- expand.grid(
+  year = as.character(2015:2025),
+  code_muni = unique(muni_sf$code_muni)
+) %>%
+  left_join(muni_sf, by = "code_muni") %>%
+  left_join(chik_muni, by = c("code_muni", "year")) %>%
+  mutate(cases = ifelse(is.na(cases), 0, cases))
+
+#Population by Municipality
+library(readxl)
+df <- read_excel("/Users/wuchangpengyuyan/Downloads/POP2024_20241230.xlsx")
+
+df$`COD. UF` <- as.integer(df$`COD. UF`)
+df$`COD. MUNIC` <- as.integer(df$`COD. MUNIC`)
+df$code_muni <- sprintf("%02d%05d", df$`COD. UF`, df$`COD. MUNIC`)
+map_data_zika$code_muni <- as.character(map_data_zika$code_muni)
+df$code_muni <- as.character(df$code_muni)
+map_data_chik$code_muni <- as.character(map_data_chik$code_muni)
+
+
+map_data_zika <- map_data_zika %>%
+  left_join(dplyr::select(df, code_muni, `POPULAÇÃO ESTIMADA`), by = "code_muni") %>%
+  mutate(
+    incidence_per_100k = round((cases / `POPULAÇÃO ESTIMADA`) * 100000, 2)
+  )
+
+map_data_zika <- map_data_zika %>%
+  mutate(
+    incidence_per_1k = round((cases / `POPULAÇÃO ESTIMADA`) * 1000, 2)
+  )
+
+# Chikungunya incidence 
+map_data_chik <- map_data_chik %>%
+  left_join(dplyr::select(df, code_muni, `POPULAÇÃO ESTIMADA`), by = "code_muni") %>%
+  mutate(
+    incidence_per_100k = round((cases / `POPULAÇÃO ESTIMADA`) * 100000, 2)
+  )
+
+map_data_chik <- map_data_chik %>%
+  mutate(
+    incidence_per_1k = round((cases / `POPULAÇÃO ESTIMADA`) * 1000, 2)
+  )
+
+
+states   <- read_state(year = 2020)                           
+regions  <- read_region(year = 2020)                            
+                  
+big_cities <- read_municipality(year = 2020) %>%
+  filter(name_muni %in% c("São Paulo", "Rio de Janeiro", "Salvador",
+                          "Belo Horizonte", "Fortaleza", "Manaus",
+                          "Recife", "Porto Alegre", "Brasília", "Curitiba")) %>%
+  mutate(centroid = st_point_on_surface(geom)) %>%
+  st_as_sf() %>% st_set_geometry("centroid")
+
+
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(viridis)
+
+# —— Chik incidence interval——
+inc_breaks_chik <- c(0, 0.5, 1, 2, 5, 10, 20, 50, Inf)
+inc_labels_chik <- c("0–0.5","0.5–1","1–2","2–5","5–10","10–20","20–50","50+")
+
+# —— Zika incidence interval ——
+inc_breaks_zika <- c(0, 0.1, 0.25, 0.5, 1, 2, 5, 10, Inf)
+inc_labels_zika <- c("0–0.1","0.1–0.25","0.25–0.5","0.5–1","1–2","2–5","5–10","10+")
+
+bin_incidence_custom <- function(df, col, breaks, labels){
+  df |>
+    dplyr::mutate(
+      inc_bin = cut(.data[[col]], breaks = breaks, labels = labels,
+                    include.lowest = TRUE, right = FALSE)
+    )
+}
+
+# --- Chik ---
+chik_binned <- bin_incidence_custom(map_data_chik, "incidence_per_1k",
+                                    inc_breaks_chik, inc_labels_chik)
+chik_labels <- levels(chik_binned$inc_bin)
+chik_cols   <- c("grey80", viridis::viridis(length(chik_labels)-1, option = "C"))
+names(chik_cols) <- chik_labels
+
+
+# --- Zika ---
+zika_binned <- bin_incidence_custom(map_data_zika, "incidence_per_1k",
+                                    inc_breaks_zika, inc_labels_zika)
+zika_labels <- levels(zika_binned$inc_bin)
+zika_cols   <- c("grey80", viridis::viridis(length(zika_labels)-1, option = "C"))
+names(zika_cols) <- zika_labels
+
+
+# Chik：0, 0.5, 1, 2, 5, 10, 20, 50  (/1k)
+inc_breaks_chik_100k <- c(0, 50, 100, 200, 500, 1000, 2000, 5000, Inf)
+inc_labels_chik_100k <- c("0–50", "50–100", "100–200", "200–500",
+                          "500–1,000", "1,000–2,000", "2,000–5,000", "5,000+")
+
+# Zika：0, 0.1, 0.25, 0.5, 1, 2, 5, 10  (/1k)
+inc_breaks_zika_100k <- c(0, 10, 25, 50, 100, 200, 500, 1000, Inf)
+inc_labels_zika_100k <- c("0–10", "10–25", "25–50", "50–100",
+                          "100–200", "200–500", "500–1,000", "1,000+")
+
+bin_incidence_custom <- function(df, col, breaks, labels){
+  df |>
+    dplyr::mutate(
+      inc_bin = cut(.data[[col]], breaks = breaks, labels = labels,
+                    include.lowest = TRUE, right = FALSE)
+    )
+}
+
+# --- Chik per-100k ---
+chik_binned_100k <- bin_incidence_custom(
+  map_data_chik, "incidence_per_100k",
+  inc_breaks_chik_100k, inc_labels_chik_100k
+)
+chik_labels_100k <- levels(chik_binned_100k$inc_bin)
+chik_cols_100k   <- c("grey80", viridis::viridis(length(chik_labels_100k) - 1, option = "C"))
+names(chik_cols_100k) <- chik_labels_100k
+
+ggplot(chik_binned_100k) +
+  geom_sf(aes(geometry = geom, fill = inc_bin), color = NA) +
+  facet_wrap(~ year, ncol = 4) +
+  scale_fill_manual(values = chik_cols_100k, name = "Incidence", drop = FALSE) +
+  labs(title = "Chikungunya Incidence by Municipality (per 100k, 2015–2025)") + theme_minimal()
+
+# --- Zika per-100k ---
+zika_binned_100k <- bin_incidence_custom(
+  map_data_zika, "incidence_per_100k",
+  inc_breaks_zika_100k, inc_labels_zika_100k
+)
+zika_labels_100k <- levels(zika_binned_100k$inc_bin)
+zika_cols_100k   <- c("grey80", viridis::viridis(length(zika_labels_100k) - 1, option = "C"))
+names(zika_cols_100k) <- zika_labels_100k
+
+ggplot(zika_binned_100k) +
+  geom_sf(aes(geometry = geom, fill = inc_bin), color = NA) +
+  facet_wrap(~ year, ncol = 4) +
+  scale_fill_manual(values = zika_cols_100k, name = "Incidence rate (Cases per 100k people)", drop = FALSE) +
+  labs(title = "Zika Incidence by Municipality (per 100k, 2015–2025)") + theme_minimal()
+
+
+```
+
+
+
+
+Hospitalization-Chikungunya
+1-Yes
+2-No
+3-Unknown
+
+```{r}
+library(scales)
+Chik_total$HOSPITALIZ <- as.character(Chik_total$HOSPITALIZ)
+
+chik_hosp_summary <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), HOSPITALIZ %in% c("1", "2")) %>%
+  count(HOSPITALIZ) %>%
+  mutate(
+    hosp_status = ifelse(HOSPITALIZ == "1", "Hospitalized", "Not Hospitalized")
+  ) %>%
+  mutate(percentage = round(n / sum(n) * 100, 2))
+
+
+ggplot(chik_hosp_summary, aes(x = hosp_status, y = percentage, fill = hosp_status)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Hospitalization Rate for Confirmed Chikungunya Cases",
+    x = "Hospitalization Status",
+    y = "Percentage of Cases"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+# === delay model===
+combined_all <- combined_all %>%
+  mutate(
+    report_delay = as.numeric(as.Date(DT_NOTIFIC) - as.Date(DT_SIN_PRI)),
+    death_delay  = as.numeric(as.Date(DT_OBITO) - as.Date(DT_SIN_PRI)),
+    hosp_delay   = as.numeric(as.Date(DT_INTERNA) - as.Date(DT_SIN_PRI))
+  ) %>%
+  filter(
+    is.na(report_delay) | report_delay >= 0,
+    is.na(death_delay)  | death_delay >= 0,
+    is.na(hosp_delay)   | hosp_delay >= 0
+  )
+
+# === 1. report delay ===
+ggplot(combined_all %>% filter(!is.na(report_delay), report_delay < 50), 
+       aes(x = report_delay, fill = virus)) +
+  geom_histogram(binwidth = 1, alpha = 0.6, color = "black", position = "identity") +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Delay from Symptom Onset to Notification",
+    x = "Delay (days)",
+    y = "Number of Cases",
+    fill = "Virus"
+  ) +
+  theme_minimal()
+
+# === 2. death delay report ===
+ggplot(combined_all %>% filter(case_status == "Death", !is.na(death_delay),death_delay < 50), 
+       aes(x = death_delay, fill = virus)) +
+  geom_histogram(binwidth = 1, alpha = 0.6,color="black", position = "identity") +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Delay from Symptom Onset to Death",
+    x = "Delay (days)",
+    y = "Number of Deaths",
+    fill = "Virus"
+  ) +
+  theme_minimal()
+
+# === 3. Hosp delay report（ Chikungunya only）===
+ggplot(combined_all %>% filter(virus == "Chikungunya", HOSPITALIZ == "1", !is.na(hosp_delay), hosp_delay < 50), 
+       aes(x = hosp_delay)) +
+  geom_histogram(binwidth = 1,color= "black", fill = "#fc8d62") +
+  labs(
+    title = "Delay from Symptom Onset to Hospitalization (Chikungunya)",
+    x = "Delay (days)",
+    y = "Number of Hospitalized Cases"
+  ) +
+  theme_minimal()
+
+# === 4. death delay + geo (Municipality) ===
+
+muni_sf <- read_municipality(year = 2020, showProgress = FALSE) %>%
+  mutate(code_muni6 = substr(as.character(code_muni), 1, 6))
+
+
+all_muni_virus <- expand.grid(
+  code_muni6 = unique(muni_sf$code_muni6),
+  virus = unique(combined_all$virus)
+)
+
+# calculate report delay
+death_delay_muni <- combined_all %>%
+  filter(case_status == "Death", !is.na(death_delay)) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6, virus) %>%
+  summarise(mean_delay = mean(death_delay), .groups = "drop")
+
+
+death_delay_map <- all_muni_virus %>%
+  left_join(death_delay_muni, by = c("code_muni6", "virus")) %>%
+  left_join(muni_sf, by = "code_muni6")
+
+
+ggplot(death_delay_map) +
+  geom_sf(aes(geometry = geom, fill = mean_delay), color = NA) +
+  facet_wrap(~ virus) +
+  scale_fill_viridis_c(
+    name   = "Mean Delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob    = squish,      
+    na.value = "lightgrey"
+  ) +
+  labs(title = "Mean Time of time lag between Symptom Onset to Death by Municipality from 2015 to 2025") +
+  theme_minimal()
+
+
+report_delay_muni <- combined_all %>%
+  filter(!is.na(report_delay)) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6, virus) %>%
+  summarise(mean_delay = mean(report_delay), .groups = "drop")
+
+
+report_delay_map <- all_muni_virus %>%
+  left_join(report_delay_muni, by = c("code_muni6", "virus")) %>%
+  left_join(muni_sf, by = "code_muni6")
+
+
+ggplot(report_delay_map) +
+  geom_sf(aes(geometry = geom, fill = mean_delay), color = NA) +
+  facet_wrap(~ virus) +
+  scale_fill_viridis_c(
+    name   = "Mean Delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob    = squish,     
+    na.value = "lightgrey"
+  ) +
+  labs(title = "Mean Time of time lag between Symptom Onset to Notification by Municipality from 2015 to 2025") +
+  theme_minimal()
+
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(survminer)
+  library(scales)
+})
+
+df_report <- combined_all %>%
+  filter(!is.na(report_delay), report_delay >= 0, report_delay <= 50)
+
+sf_report <- survfit(Surv(report_delay, rep(1, nrow(df_report))) ~ virus, data = df_report)
+
+ggsurvplot(
+  sf_report,
+  conf.int = FALSE, censor = FALSE,
+  legend.title = "Virus",
+  legend.labs = levels(factor(df_report$virus)),
+  xlab = "Days since symptom onset",
+  ylab = "P(delay > t)",
+  title = "Survival Curve: Onset → Notification Delay",
+  xlim = c(0, 50)
+)
+
+# —— 2)death delay（0–50days）——
+df_death <- combined_all %>%
+  filter(case_status == "Death", !is.na(death_delay), death_delay >= 0, death_delay <= 50)
+
+sf_death <- survfit(Surv(death_delay, rep(1, nrow(df_death))) ~ virus, data = df_death)
+
+ggsurvplot(
+  sf_death,
+  conf.int = FALSE, censor = FALSE,
+  legend.title = "Virus",
+  legend.labs = levels(factor(df_death$virus)),
+  xlab = "Days since symptom onset",
+  ylab = "P(delay > t)",
+  title = "Survival Curve: Onset → Death Delay",
+  xlim = c(0, 50)
+)
+
+# —— 3) hospitalization delay（0–50days）——
+df_hosp <- combined_all %>%
+  filter(virus == "Chikungunya", HOSPITALIZ == "1",
+         !is.na(hosp_delay), hosp_delay >= 0, hosp_delay <= 50)
+
+sf_hosp <- survfit(Surv(hosp_delay, rep(1, nrow(df_hosp))) ~ 1, data = df_hosp)
+
+ggsurvplot(
+  sf_hosp,
+  conf.int = FALSE, censor = FALSE,
+  legend = "none",
+  xlab = "Days since symptom onset",
+  ylab = "P(delay > t)",
+  title = "Survival Curve: Onset → Hospitalization Delay (Chikungunya)",
+  xlim = c(0, 50)
+)
+```
+
+
+Age Distribution of Confirmed Cases
+```{r}
+
+#box plot age
+
+combined_all$year <- factor(format(as.Date(combined_all$DT_SIN_PRI), "%Y"))
+
+
+ggplot(
+  combined_all %>% 
+    filter(case_status == "Confirmed", !is.na(age_years), age_years <= 120),
+  aes(x = year, y = age_years, fill = virus)
+) +
+  geom_boxplot(outlier.size = 0.8, outlier.alpha = 0.6) +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Annual Age Distribution of Confirmed Cases (Box Plot)",
+    x = "Year",
+    y = "Age (years)",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Annual age distribution of confirmed Zika and Chikungunya cases (2015–2025). Box plots show that Chikungunya (orange) cases have a consistently higher median age (~45–50 years) compared to Zika (green, ~30–40 years). For both viruses, the interquartile range is wide, spanning from young adults to elderly populations, with numerous outliers above 80 years. The distribution pattern remains stable across years, though slight increases in median age for Zika are visible after 2021.
+
+
+
+ggplot(
+  combined_all %>% 
+    filter(case_status == "Death", !is.na(age_years), age_years <= 120),
+  aes(x = year, y = age_years, fill = virus)
+) +
+  geom_boxplot(outlier.size = 0.8, outlier.alpha = 0.6) +
+  scale_fill_manual(values = c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")) +
+  labs(
+    title = "Annual Age Distribution of Deaths (Box Plot)",
+    x = "Year",
+    y = "Age (years)",
+    fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Annual age distribution of deaths caused by Zika and Chikungunya (2015–2025). Chikungunya (orange) deaths occur predominantly among older adults, with median ages generally between 55–75 years and frequent cases in the 80+ range. In contrast, Zika (green) deaths are fewer but show distinct age patterns. Notably, 2015 and 2021 exhibit a concentration of infant deaths (age near 0), reflected in the extremely low medians for those years. Other Zika mortality years, such as 2016–2017, are dominated by young to middle-aged adults. Overall, Chikungunya mortality skews much older than Zika.
+
+
+```
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+# =========================
+# Prepare year variable
+# =========================
+combined_all <- combined_all %>%
+  mutate(year = factor(format(as.Date(DT_SIN_PRI), "%Y")))
+
+# =========================
+# Box plot: confirmed cases
+# =========================
+ggplot(
+  combined_all %>%
+    filter(
+      virus == "Chikungunya",
+      case_status == "Confirmed",
+      !is.na(age_years),
+      age_years <= 120
+    ),
+  aes(x = year, y = age_years)
+) +
+  geom_boxplot(
+    fill = "#fc8d62",
+    outlier.size = 0.8,
+    outlier.alpha = 0.6
+  ) +
+  labs(
+    title = "Annual age distribution of confirmed chikungunya cases (2015–2025)",
+    x = "Year",
+    y = "Age (years)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+
+
+# Age by sex
+ggplot(
+  combined_all %>%
+    filter(
+      virus == "Chikungunya",
+      case_status == "Confirmed",
+      !is.na(age_years),
+      age_years <= 120,
+      CS_SEXO %in% c("M", "F")
+    ),
+  aes(x = year, y = age_years, fill = CS_SEXO)
+) +
+  geom_boxplot(
+    position = position_dodge(width = 0.8),
+    outlier.size = 0.5,
+    outlier.alpha = 0.5
+  ) +
+  scale_fill_manual(
+    values = c("M" = "#66c2a5", "F" = "#fc8d62"),
+    labels = c("M" = "Male", "F" = "Female")
+  ) +
+  labs(
+    title = "Annual age distribution of confirmed chikungunya cases by sex (2015–2025)",
+    x = "Year",
+    y = "Age (years)",
+    fill = "Sex"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+
+
+
+```
+
+
+
+Survival analysis
+```{r}
+
+
+  library(dplyr)
+  library(survival)
+  library(survminer)
+  library(broom)
+  library(ggplot2)
+  library(scales)
+
+combined_all <- combined_all %>%
+  mutate(race_label = case_when(
+    CS_RACA == 1 ~ "White",
+    CS_RACA == 2 ~ "Black",
+    CS_RACA == 3 ~ "Asian",
+    CS_RACA == 4 ~ "Pardo (Mixed)",
+    CS_RACA == 5 ~ "Indigenous",
+    CS_RACA == 9 ~ "Unknown",
+    TRUE ~ "Unspecified"
+  ))
+
+
+# Add a newborn-sensitive age grouping for survival
+combined_all <- combined_all %>%
+  mutate(age_group_surv = case_when(
+    !is.na(age_years) & age_years < 1    ~ "<1",
+    age_years >= 1  & age_years < 5      ~ "1–4",
+    age_years >= 5  & age_years < 10     ~ "5–9",
+    age_years >= 10 & age_years < 15     ~ "10–14",
+    age_years >= 15 & age_years < 20     ~ "15–19",
+    age_years >= 20 & age_years < 25     ~ "20–24",
+    age_years >= 25 & age_years < 30     ~ "25–29",
+    age_years >= 30 & age_years < 35     ~ "30–34",
+    age_years >= 35 & age_years < 40     ~ "35–39",
+    age_years >= 40 & age_years < 45     ~ "40–44",
+    age_years >= 45 & age_years < 50     ~ "45–49",
+    age_years >= 50 & age_years < 55     ~ "50–54",
+    age_years >= 55 & age_years < 60     ~ "55–59",
+    age_years >= 60 & age_years < 65     ~ "60–64",
+    age_years >= 65 & age_years < 70     ~ "65–69",
+    age_years >= 70 & age_years < 75     ~ "70–74",
+    age_years >= 75 & age_years < 80     ~ "75–79",
+    age_years >= 80 & age_years < 85     ~ "80–84",
+    age_years >= 85 & age_years < 90     ~ "85–89",
+    age_years >= 90 & age_years < 95     ~ "90–94",
+    age_years >= 95 & age_years <= 120   ~ "95+",
+    TRUE ~ NA_character_
+  ),
+  age_group_surv = factor(age_group_surv,
+    levels = c("<1","1–4","5–9","10–14","15–19","20–24","25–29","30–34",
+               "35–39","40–44","45–49","50–54","55–59","60–64","65–69",
+               "70–74","75–79","80–84","85–89","90–94","95+"),
+    ordered = TRUE)
+  )
+
+
+build_surv_dataset <- function(df, virus_label, group_var,
+                               time_event = "death_delay",
+                               time_last_obs = "report_delay",
+                               xlim_days = c(0, 50)) {
+  df %>%
+    filter(virus == virus_label) %>%
+    mutate(
+      status = ifelse(case_status == "Death" & !is.na(.data[[time_event]]), 1L, 0L),
+      t_event = .data[[time_event]],
+      t_censor_raw = .data[[time_last_obs]],
+      t_censor_filled = ifelse(is.na(t_censor_raw), xlim_days[2], t_censor_raw),
+      t_obs = ifelse(status == 1L, t_event, t_censor_filled),
+      t_obs = pmin(pmax(t_obs, xlim_days[1]), xlim_days[2]),
+      .grp = droplevels(factor(.data[[group_var]]))
+    ) %>%
+    filter(!is.na(t_obs), !is.na(.grp))
+}
+
+plot_km_by <- function(df, virus_label, group_var,
+                       time_event = "death_delay",
+                       time_last_obs = "report_delay",
+                       xlim_days = c(0, 50),
+                       ylim_surv = NULL,    
+                       title_prefix = "Survival Curve: Onset → Death") {
+  d <- build_surv_dataset(df, virus_label, group_var, time_event, time_last_obs, xlim_days)
+  if (nrow(d) < 2 || dplyr::n_distinct(d$.grp) < 1) {
+    message(paste0("[", virus_label, "] ", group_var, ": No Data, skip"))
+    return(invisible(NULL))
+  }
+
+  fit <- survfit(Surv(t_obs, status) ~ .grp, data = d)
+
+  td <- broom::tidy(fit) %>%
+    mutate(group = sub("^\\.grp=", "", strata)) %>%
+    rename(time_days = time, surv_prob = estimate,
+           lower_ci = conf.low, upper_ci = conf.high) %>%
+
+    mutate(
+      surv_prob = pmin(pmax(surv_prob, 0), 1),
+      lower_ci  = pmin(pmax(lower_ci,  0), 1),
+      upper_ci  = pmin(pmax(upper_ci,  0), 1)
+    )
+
+  base <- td %>%
+    distinct(group) %>%
+    mutate(time_days = 0, surv_prob = 1, lower_ci = 1, upper_ci = 1)
+  td <- bind_rows(base, td) %>% arrange(group, time_days)
+
+  pval_txt <- ""
+  if (n_distinct(d$.grp) > 1) {
+    lr <- survdiff(Surv(t_obs, status) ~ .grp, data = d)
+    pval <- 1 - pchisq(lr$chisq, df = length(lr$n) - 1)
+    pval_txt <- paste0(" (log-rank p = ", format.pval(pval, digits = 3, eps = 1e-4), ")")
+  }
+
+  ggplot(td, aes(x = time_days, y = surv_prob, color = group)) +
+    geom_step(linewidth = 0.9) +
+    scale_x_continuous(limits = xlim_days, expand = expansion(mult = 0)) +
+    scale_y_continuous(
+      limits  = if (is.null(ylim_surv)) c(0, 1) else ylim_surv,
+      n.breaks = 6,
+      labels  = scales::label_percent(accuracy = 0.01),  
+      expand  = expansion(mult = 0)
+    ) +
+    labs(
+      title = paste0(title_prefix, " by ", gsub("_", " ", group_var),
+                     " (", virus_label, ")", pval_txt),
+      x = "Days since symptom onset",
+      y = "P(delay > t)",
+      color = gsub("_", " ", group_var)
+    ) +
+    theme_minimal()
+}
+
+km_data_by <- function(df, virus_label, group_var,
+                       time_event = "death_delay",
+                       time_last_obs = "report_delay",
+                       xlim_days = c(0, 50)) {
+  d <- build_surv_dataset(df, virus_label, group_var, time_event, time_last_obs, xlim_days)
+  if (nrow(d) < 2 || dplyr::n_distinct(d$.grp) < 1) return(NULL)
+  fit <- survfit(Surv(t_obs, status) ~ .grp, data = d)
+  broom::tidy(fit) %>%
+    mutate(group = sub("^\\.grp=", "", strata)) %>%
+    rename(time_days = time, surv_prob = estimate,
+           lower_ci = conf.low, upper_ci = conf.high)
+}
+
+```
+
+
+
+
+```{r}
+#overall incidence by year
+library(dplyr); library(ggplot2); library(scales)
+
+
+nat_pop <- sum(df$`POPULAÇÃO ESTIMADA`, na.rm = TRUE)
+
+inc_year_nat <- combined_all %>%
+  filter(case_status == "Confirmed") %>%
+  mutate(year = format(as.Date(DT_SIN_PRI), "%Y")) %>%
+  count(virus, year, name = "cases") %>%
+  mutate(incidence_per_100k = 1e5 * cases / nat_pop)
+
+ggplot(inc_year_nat, aes(x = year, y = incidence_per_100k, fill = virus)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Incidence per 100k by Year (Brazil, 2015–2025)",
+    x = "Year", y = "Incidence (per 100k)", fill = "Virus"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#death age by year
+
+death_age_year <- combined_all %>%
+  mutate(year = format(as.Date(DT_SIN_PRI), "%Y")) %>%
+  filter(case_status == "Death", !is.na(age_group),
+         year >= "2015", year <= "2025") %>%
+  count(year, virus, age_group, name = "n") %>%
+  group_by(year, virus) %>%
+  mutate(percentage = 100 * n / sum(n)) %>% ungroup()
+
+ggplot(death_age_year, aes(x = year, y = percentage, fill = age_group)) +
+  geom_col() +
+  facet_wrap(~ virus) +
+  labs(title = "Age-Group Composition of Deaths per Year (2015–2025)",
+       x = "Year", y = "Percentage of Deaths", fill = "Age Group") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#overall death
+library(dplyr); library(ggplot2)
+
+nat_pop <- sum(df$`POPULAÇÃO ESTIMADA`, na.rm = TRUE)
+
+deaths_year <- combined_all %>%
+  mutate(year = format(as.Date(DT_SIN_PRI), "%Y")) %>%
+  filter(case_status == "Death", year >= "2015", year <= "2025") %>%
+  count(virus, year, name = "deaths") %>%
+  mutate(mortality_per_100k = 1e5 * deaths / nat_pop)
+
+ggplot(deaths_year, aes(x = year, y = mortality_per_100k, fill = virus)) +
+  geom_col(position = "dodge") +
+  labs(title = "Mortality per 100k by Year (Brazil, 2015–2025)",
+       x = "Year", y = "Deaths per 100k", fill = "Virus") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+
+
+```{r}
+
+  library(dplyr)
+  library(lubridate)
+  library(ggplot2)
+  library(scales)
+
+
+date_min   <- as.Date("2015-01-01")
+date_max   <- as.Date("2025-12-31")
+cols       <- c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")
+dodge_w    <- 12    
+box_w      <- 12    
+use_log_y  <- FALSE 
+
+
+ensure_code_muni7 <- function(dat) {
+  dat %>%
+    mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+    left_join(muni_lookup, by = "code_muni6") %>%
+    mutate(code_muni = as.character(code_muni))
+}
+
+
+Zika_w <- Zika_total %>%
+  filter(CLASSI_FIN == 1, !is.na(DT_SIN_PRI)) %>%
+  mutate(
+    DT_SIN_PRI = as.Date(DT_SIN_PRI),
+    week  = floor_date(DT_SIN_PRI, "week", week_start = 1),
+    virus = "Zika"
+  ) %>%
+  filter(week >= date_min, week <= date_max) %>%
+  ensure_code_muni7()
+
+Chik_w <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(DT_SIN_PRI)) %>%
+  mutate(
+    DT_SIN_PRI = as.Date(DT_SIN_PRI),
+    week  = floor_date(DT_SIN_PRI, "week", week_start = 1),
+    virus = "Chikungunya"
+  ) %>%
+  filter(week >= date_min, week <= date_max) %>%
+  ensure_code_muni7()
+
+weekly_raw <- bind_rows(Zika_w, Chik_w) %>%
+  filter(!is.na(code_muni))
+
+
+pop_muni <- df %>%
+  transmute(code_muni = as.character(code_muni),
+            POP = `POPULAÇÃO ESTIMADA`) %>%
+  filter(!is.na(code_muni), !is.na(POP), POP > 0)
+
+nat_pop <- sum(pop_muni$POP, na.rm = TRUE)
+
+wk_muni <- weekly_raw %>%
+  count(virus, week, code_muni, name = "cases") %>%
+  left_join(pop_muni, by = "code_muni") %>%
+  filter(!is.na(POP), POP > 0) %>%
+  mutate(inc_100k = 1e5 * cases / POP) %>%
+
+  group_by(virus, week) %>%
+  filter(any(!is.na(inc_100k))) %>%
+  ungroup()
+
+
+wk_nat <- weekly_raw %>%
+  count(virus, week, name = "cases_nat") %>%
+  mutate(inc_nat_100k = 1e5 * cases_nat / nat_pop) %>%
+  arrange(virus, week)
+
+
+p <- ggplot() +
+
+  geom_boxplot(
+    data = wk_muni,
+    aes(x = week, y = inc_100k, group = interaction(virus, week),
+        fill = virus),
+    position = position_dodge2(width = dodge_w, preserve = "single"),
+    width = box_w,
+    color = "black",      
+    size = 0.25,
+    outlier.size = 0.6,
+    outlier.alpha = 0.6
+  ) +
+
+  geom_line(
+    data = wk_nat,
+    aes(x = week, y = inc_nat_100k, color = virus),
+    linewidth = 0.9
+  ) +
+  scale_color_manual(values = cols, name = "Virus") +
+  scale_fill_manual(values  = cols, name = "Virus") +
+  scale_x_date(
+    breaks = seq(date_min, date_max, by = "1 year"),
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+  labs(
+    title    = "Figure 1. Weekly Incidence per 100k (Brazil, 2015–2025)",
+    subtitle = "Boxes = municipality incidence per week; Lines = national weekly incidence",
+    x = "Week (2015–2025)",
+    y = "Incidence per 100,000"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank()
+  )
+
+if (isTRUE(use_log_y)) {
+  p <- p + scale_y_continuous(
+    trans = "log10",
+    breaks = c(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100),
+    labels = label_number(accuracy = 0.1)
+  )
+} else {
+  p <- p + scale_y_continuous(labels = label_number(accuracy = 0.1))
+}
+
+print(p)
+
+#top weeks  for now its top 3
+wk_nat %>%
+  group_by(virus) %>%
+  slice_max(inc_nat_100k, n = 3, with_ties = FALSE) %>%
+  ungroup()
+
+```
+
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+
+
+date_min <- as.Date("2015-01-01")
+date_max <- as.Date("2025-12-31")
+cols <- c("Zika" = "#66c2a5", "Chikungunya" = "#fc8d62")
+
+# country level incidence
+wk_nat <- weekly_raw %>%
+  count(virus, week, name = "cases_nat") %>%
+  mutate(inc_nat_100k = 1e5 * cases_nat / nat_pop) %>%
+  filter(week >= date_min, week <= date_max)
+
+
+p <- ggplot(wk_nat, aes(x = week, y = inc_nat_100k, color = virus)) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = cols, name = "Virus") +
+  scale_x_date(
+    breaks = seq(date_min, date_max, by = "1 year"),
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(labels = label_number(accuracy = 0.1)) +
+  labs(
+    title    = "Figure 1. Weekly National Incidence per 100k (Brazil, 2015–2025)",
+    x = "Week (2015–2025)",
+    y = "Incidence per 100,000"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position  = "top",
+    panel.grid.minor = element_blank()
+  )
+
+print(p)
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+
+# =========================
+# Time window
+# =========================
+date_min <- as.Date("2015-01-01")
+date_max <- as.Date("2025-12-31")
+
+# =========================
+# PREP: weekly national chikungunya
+# =========================
+wk_chik <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(DT_SIN_PRI)) %>%
+  mutate(
+    DT_SIN_PRI = as.Date(DT_SIN_PRI),
+    week = floor_date(DT_SIN_PRI, "week", week_start = 1)
+  ) %>%
+  filter(week >= date_min, week <= date_max) %>%
+  count(week, name = "cases_nat") %>%
+  mutate(
+    inc_nat_100k = 1e5 * cases_nat / nat_pop
+  ) %>%
+  arrange(week)
+
+# =========================
+# FIGURE 1: bars + line
+# =========================
+p <- ggplot(wk_chik, aes(x = week)) +
+
+  # ---- weekly national cases (bars)
+  geom_col(
+    aes(y = cases_nat),
+    fill  = "grey80",
+    color = NA,
+    width = 6
+  ) +
+
+  # ---- weekly incidence per 100k (line)
+  geom_line(
+    aes(y = inc_nat_100k * 1000),
+    color = "#fc8d62",
+    linewidth = 0.9
+  ) +
+
+  scale_x_date(
+    breaks = seq(date_min, date_max, by = "1 year"),
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+
+  scale_y_continuous(
+    name = "Weekly cases (national total)",
+    labels = comma,
+    sec.axis = sec_axis(
+      ~ . / 1000,
+      name = "Weekly incidence per 100,000"
+    )
+  ) +
+
+  labs(
+    title = "Figure 1. Weekly chikungunya burden in Brazil, 2015–2025",
+    x = "Year"
+  ) +
+
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.title.y.right = element_text(color = "#fc8d62"),
+    axis.text.y.right  = element_text(color = "#fc8d62")
+  )
+
+print(p)
+
+
+
+
+```
+
+```{r}
+
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(scales)
+
+# =========================
+# Time window
+# =========================
+date_min <- as.Date("2015-01-01")
+date_max <- as.Date("2025-12-31")
+
+# =========================
+# PREP: weekly national chikungunya
+# =========================
+wk_chik <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13), !is.na(DT_SIN_PRI)) %>%
+  mutate(
+    DT_SIN_PRI = as.Date(DT_SIN_PRI),
+    week = floor_date(DT_SIN_PRI, "week", week_start = 1)
+  ) %>%
+  filter(week >= date_min, week <= date_max) %>%
+  count(week, name = "cases_nat") %>%
+  mutate(
+    inc_nat_100k = 1e5 * cases_nat / nat_pop,
+    week_of_year = isoweek(week)
+  ) %>%
+  arrange(week)
+
+# =========================
+# BASELINE: long-term mean for same calendar week
+# =========================
+baseline <- wk_chik %>%
+  group_by(week_of_year) %>%
+  summarise(
+    mean_inc = mean(inc_nat_100k, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+wk_chik <- wk_chik %>%
+  left_join(baseline, by = "week_of_year") %>%
+  mutate(
+    deviation = inc_nat_100k - mean_inc
+  )
+
+# =========================
+# Scaling factors (for shared plot space)
+# =========================
+scale_inc  <- 1000     # incidence → secondary axis
+scale_dev  <- 1000     # deviation → secondary axis
+
+# =========================
+# FIGURE
+# =========================
+p <- ggplot(wk_chik, aes(x = week)) +
+
+  # ---- Bars: weekly national cases
+  geom_col(
+    aes(y = cases_nat),
+    fill = "grey80",
+    width = 6
+  ) +
+
+  # ---- Line 1: weekly incidence
+  geom_line(
+    aes(y = inc_nat_100k * scale_inc),
+    color = "#fc8d62",
+    linewidth = 0.9
+  ) +
+
+  # ---- Line 2: deviation from weekly baseline
+  geom_line(
+    aes(y = deviation * scale_dev),
+    color = "#d7301f",
+    linewidth = 0.7,
+    linetype = "dashed"
+  ) +
+
+  scale_x_date(
+    breaks = seq(date_min, date_max, by = "1 year"),
+    date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.02))
+  ) +
+
+  scale_y_continuous(
+    name = "Weekly cases (national total)",
+    labels = comma,
+    sec.axis = sec_axis(
+      ~ . / scale_inc,
+      name = "Weekly incidence / deviation (per 100,000)"
+    )
+  ) +
+
+  labs(
+    title = "Figure 1. Weekly chikungunya dynamics in Brazil, 2015–2025",
+    subtitle = "Bars: national cases; Solid line: incidence; Dashed line: deviation from long-term weekly mean",
+    x = "Year"
+  ) +
+
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = "none",
+    axis.title.y.right = element_text(color = "#fc8d62")
+  )
+
+print(p)
+
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(tibble)
+
+# =========================
+# 2022 Population Census
+# =========================
+race_pop <- tibble::tribble(
+  ~race_label,        ~population,
+  "White",             88252121,
+  "Black",             20656458,
+  "Asian",               850130,
+  "Pardo (Mixed)",     92083286,
+  "Indigenous",         1227642
+)
+
+# =========================
+# Incidence per 100k by race/year (Chikungunya only)
+# =========================
+race_year_inc <- race_year_summary %>%
+  filter(virus == "Chikungunya") %>%
+  left_join(race_pop, by = "race_label") %>%
+  filter(!is.na(population), population > 0) %>%
+  mutate(
+    incidence_per_100k = (n / population) * 100000
+  )
+
+# =========================
+# Share of incidence (100% stacked)
+# =========================
+race_year_pct_inc <- race_year_inc %>%
+  group_by(year) %>%
+  mutate(
+    share = incidence_per_100k / sum(incidence_per_100k, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# =========================
+# Plot
+# =========================
+ggplot(race_year_pct_inc,
+       aes(x = year, y = share, fill = race_label)) +
+  geom_col(position = "fill", color = "white", width = 0.9) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "Incidence per 100k by Race/Ethnicity (Chikungunya, 2015–2025)",
+    x = "Year",
+    y = "Share of incidence",
+    fill = "Race / Ethnicity"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+
+
+```
+
+
+Cleaned population 2022 census
+```{r}
+
+
+library(readxl)
+library(dplyr)
+library(stringr)
+
+gamdata<- read_excel("/Users/wuchangpengyuyan/Downloads/tabela9606.xlsx", sheet = "Tabela") %>% tidyr::fill(Race, .direction = "down")
+
+
+```
+
+
+Refined gam model using 2022 data
+
+
+library(dplyr)
+library(mgcv)
+library(gratia)
+library(ggplot2)
+
+
+pop_df <- gamdata %>%
+  rename(age_year = Age,
+         race_label = Race,
+         population = Population) %>%
+  mutate(
+    age_year = as.integer(age_year),
+    race_label = recode(race_label,
+                        "Pardo" = "Pardo (Mixed)")
+  )
+
+
+reg_df <- combined_all %>%
+  filter(case_status == "Confirmed",
+         !is.na(age_years), age_years <= 100,
+         !is.na(race_label),
+         !is.na(DT_SIN_PRI)) %>%
+  mutate(
+   race_label = recode(race_label, "Pardo" = "Pardo (Mixed)"),
+    ym    = format(as.Date(DT_SIN_PRI), "%Y-%m"),
+    ym_id = as.integer(factor(ym, levels = sort(unique(ym)))),
+    age_year  = pmin(100L, floor(age_years)),
+    race_label = factor(race_label,
+                        levels = c("White", "Pardo (Mixed)", "Black", "Indigenous", "Asian"))
+  ) %>%
+  group_by(virus, ym_id, age_year, race_label) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  left_join(pop_df, by = c("age_year", "race_label")) %>%
+  filter(!is.na(population) & population > 0) %>%
+  ungroup()
+
+
+
+# Chikungunya
+fit_chik_full <- gam(
+  cases ~ s(ym_id, bs = "cs", k = 120) +
+          s(age_year, bs = "cs", k = 20) +
+          race_label +
+          offset(log(population)),
+  family = nb(link = "log"),
+  data   = reg_df %>% filter(virus == "Chikungunya"),
+  method = "REML"
+)
+
+# Zika
+fit_zika_full <- gam(
+  cases ~ s(ym_id, bs = "cs", k = 120) +
+          s(age_year, bs = "cs", k = 20) +
+          race_label +
+          offset(log(population)),
+  family = nb(link = "log"),
+  data   = reg_df %>% filter(virus == "Zika"),
+  method = "REML"
+)
+
+
+summary(fit_chik_full)
+summary(fit_zika_full)
+
+gam.check(fit_chik_full)
+gam.check(fit_zika_full)
+
+draw(fit_chik_full, residuals = FALSE) 
+draw(fit_zika_full, residuals = FALSE)
+
+# ------------------------------
+# Model Prediction & Visualization (Fixed)
+# ------------------------------
+# ---- Prediction on observed data ----
+reg_df <- reg_df %>%
+  mutate(
+    pred_chik = if_else(
+      virus == "Chikungunya",
+      predict(fit_chik_full, newdata = reg_df, type = "response"),
+      NA_real_
+    ),
+    pred_zika = if_else(
+      virus == "Zika",
+      predict(fit_zika_full, newdata = reg_df, type = "response"),
+      NA_real_
+    ),
+    resid_chik = if_else(virus == "Chikungunya", cases - pred_chik, NA_real_),
+    resid_zika = if_else(virus == "Zika", cases - pred_zika, NA_real_)
+  )
+
+# =====================================================
+# 6. Visualization 1: Observed vs Predicted (Zika)
+# =====================================================
+ggplot(reg_df %>% filter(virus == "Zika"),
+       aes(x = cases, y = pred_zika, color = race_label)) +
+  geom_point(alpha = 0.4) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  labs(title = "Observed vs Predicted Zika Cases",
+       x = "Observed Cases", y = "Predicted Cases") +
+  theme_minimal()
+
+# =====================================================
+# 7. Visualization 2: Time-series Prediction with 95% CI
+# =====================================================
+
+pred_data <- reg_df %>%
+  filter(virus == "Zika",
+         age_year == 20,
+         race_label == "Black") %>%
+  distinct(ym_id, age_year, race_label, population, cases)
+
+pred_result <- predict(
+  fit_zika_full,
+  newdata = pred_data,
+  type = "link",
+  se.fit = TRUE
+)
+
+pred_data <- pred_data %>%
+  mutate(
+    fit_link  = pred_result$fit,
+    se_link   = pred_result$se.fit,
+    pred_resp = exp(fit_link),
+    lower_resp = exp(fit_link - 1.96 * se_link),
+    upper_resp = exp(fit_link + 1.96 * se_link)
+  )
+
+
+ggplot(pred_data, aes(x = ym_id, y = pred_resp)) +
+  geom_ribbon(aes(ymin = lower_resp, ymax = upper_resp),
+              fill = "orange", alpha = 0.25) +
+  geom_line(color = "orange", linewidth = 1) +
+  labs(title = "Predicted Chikungunya Cases Over Time (Age 30, Pardo Mixed)",
+       x = "Month (ym_id)",
+       y = "Predicted Cases (with 95% CI)") +
+  theme_minimal()
+"
+
+
+
+The "INLA" Package
+```{r}
+
+
+# =======================================
+# 1. Libraries
+# =======================================
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(geobr)
+library(sf)
+library(spdep)
+library(INLA)
+library(ggplot2)
+library(stringr)
+library(scales)
+
+# =======================================
+# 2. Data setup
+# =======================================
+
+
+
+# ---- Population ----
+pop_df <- df %>%
+  transmute(
+    code_muni = substr(as.character(code_muni), 1, 6),
+    POP = as.numeric(`POPULAÇÃO ESTIMADA`)
+  ) %>%
+  filter(!is.na(code_muni), !is.na(POP), POP > 0) %>%
+  mutate(code_muni = str_pad(code_muni, width = 6, pad = "0"))
+# ============================================================
+# National monthly Zika incidence (Z_t)
+# ============================================================
+
+zika_nat_month <- Zika_total %>%
+  filter(CLASSI_FIN == 1, !is.na(DT_SIN_PRI)) %>%
+  mutate(
+    ym = format(as.Date(DT_SIN_PRI), "%Y-%m")
+  ) %>%
+  count(ym, name = "cases_zika") %>%
+  left_join(
+    pop_df %>% summarise(POP_nat = sum(POP)),
+    by = character()
+  ) %>%
+  mutate(
+    Z_t_raw = cases_zika / POP_nat * 1e5, # incidence per 100k,
+    Z_t = as.numeric(scale(Z_t_raw))
+  ) %>%
+  select(ym, Z_t)
+
+# ---- Municipality shapefile (REFERENCE ORDER for graph) ----
+muni_sf <- read_municipality(year = 2020) %>%
+  st_make_valid() %>%
+  mutate(code_muni = substr(as.character(code_muni), 1, 6)) %>%
+  mutate(code_muni = str_pad(code_muni, width = 6, pad = "0"))
+
+# This is the ONLY valid ordering for BYM2 graph indexing
+space_levels <- muni_sf$code_muni
+stopifnot(length(space_levels) == nrow(muni_sf))
+
+# ---- Build adjacency graph ----
+nb <- poly2nb(muni_sf)
+adj_file <- tempfile(fileext = ".adj")
+nb2INLA(file = adj_file, nb = nb)
+g <- INLA::inla.read.graph(adj_file)
+
+# =======================================
+# 3. Functions
+# =======================================
+
+# ---- Municipality × Month panel (GRAPH-ALIGNED)
+# IMPORTANT: This builds incidence model with offset = log(POP)
+make_panel_muni_month_pop <- function(dat, pop_df, space_levels, zika_nat_month) {
+
+  panel <- dat %>%
+    transmute(
+      code_muni = substr(as.character(ID_MUNICIP), 1, 6),
+      code_muni = str_pad(code_muni, width = 6, pad = "0"),
+      ym = format(as.Date(DT_SIN_PRI), "%Y-%m"),
+      is_conf = CLASSI_FIN %in% c(1, 13)
+    ) %>%
+    filter(is_conf, !is.na(code_muni), !is.na(ym)) %>%
+    count(code_muni, ym, name = "cases") %>%
+    complete(code_muni, ym, fill = list(cases = 0L)) %>%
+    left_join(pop_df, by = "code_muni") %>%
+    filter(!is.na(POP), POP > 0) %>%
+    filter(code_muni %in% space_levels) %>%
+    mutate(
+      space = match(code_muni, space_levels),
+      time  = as.integer(factor(ym, levels = sort(unique(ym))))
+    )
+
+  # ---- 加 Z_t（national Zika incidence）----
+  panel <- panel %>%
+    left_join(zika_nat_month, by = "ym") %>%
+    mutate(
+      Z_t = ifelse(is.na(Z_t), 0, Z_t)
+    )
+
+  # ---- space–time index ----
+  n_space <- length(space_levels)
+  panel <- panel %>%
+    mutate(
+      st_id = (time - 1L) * n_space + space,
+      offset_pop = log(POP)
+    )
+
+  stopifnot(!anyNA(panel$Z_t))
+  stopifnot(!anyNA(panel$space))
+  stopifnot(!anyNA(panel$time))
+  stopifnot(!anyNA(panel$offset_pop))
+
+  panel
+}
+
+
+fit_inla_space_time_full_interact_pop <- function(panel_df, graph) {
+
+  formula <- cases ~
+     Z_t + 
+    f(space, model = "bym2", graph = graph, scale.model = TRUE,
+      hyper = list(
+        prec = list(prior = "pc.prec", param = c(1, 0.01)),
+        phi  = list(prior = "pc",      param = c(0.5, 2/3))
+      )) +
+    f(time, model = "rw2",
+      hyper = list(prec = list(prior = "pc.prec", param = c(1, 0.01))),
+      constr = TRUE) +
+    f(st_id, model = "iid",
+      hyper = list(prec = list(prior = "pc.prec", param = c(2, 0.01))))
+
+  inla(
+    formula,
+    family = "poisson",
+    data = panel_df,
+    offset = panel_df$offset_pop,   # <-- log(POP)
+    control.predictor = list(compute = TRUE, link = 1),
+    control.compute = list(dic = TRUE, waic = TRUE),
+    num.threads = "1:1",
+    verbose = TRUE
+  )
+}
+
+
+
+# ---- Extract TOTAL log(rate) where rate = mu / POP = exp(eta) ----
+extract_total_lograte <- function(fit_obj, panel_df, per = 1e5) {
+
+  alpha <- fit_obj$summary.fixed["(Intercept)", "mean"]
+  beta  <- fit_obj$summary.fixed["Z_t", "mean"]
+  spatial <- fit_obj$summary.random$space %>%
+    transmute(space = ID, sp = mean)
+
+  temporal <- fit_obj$summary.random$time %>%
+    transmute(time = ID, tm = mean)
+
+  interact <- fit_obj$summary.random$st_id %>%
+    transmute(st_id = ID, it = mean)
+
+  out <- panel_df %>%
+    distinct(code_muni, ym, space, time, st_id, POP, Z_t) %>%
+    left_join(spatial,  by = "space") %>%
+    left_join(temporal, by = "time") %>%
+    left_join(interact, by = "st_id") %>%
+    mutate(
+      eta = alpha + beta * Z_t + sp + tm + it,
+      log_rate_per_person = eta,
+      rate_per_person = exp(eta),
+      # scale to per 100k (or per=1e5)
+      log_rate_per = eta + log(per),
+      rate_per = exp(eta) * per,
+      ym_date = as.Date(paste0(ym, "-01"))
+    )
+
+  out
+}
+
+
+
+# =======================================
+# 4. Build panel (Chik only) + sanity checks
+# =======================================
+
+panel_chik_full <- make_panel_muni_month_pop(
+  Chik_total,
+  pop_df,
+  space_levels,
+  zika_nat_month
+)
+
+#fit_chik_interact_pop <- fit_inla_space_time_full_interact_pop(panel_chik_full,g)
+
+
+#saveRDS(fit_chik_interact_pop, "~/Desktop/fit_chik_interact_pop.rds")
+
+# Load existing
+fit_chik_interact_pop <- readRDS("~/Desktop/fit_chik_interact_pop.rds")
+
+# Extract log(rate)
+st_rate_chik <- extract_total_lograte(fit_chik_interact_pop, panel_chik_full, per = 1e5)
+
+# =======================================
+
+st_rate_chik <- st_rate_chik %>%
+  left_join(
+    pop_df %>% select(code_muni, POP),
+    by = "code_muni"
+  )
+
+# ============================================================
+# Plotting (IRR relative to median)
+# ASSUMES:
+#   st_rate_chik: municipality × time, contains
+#     - rate_per   (incidence per 100k)
+#     - ym_date
+#     - POP
+#     - code_muni
+#     - Z_t
+# ============================================================
+
+# ============================================================
+# 1. National population-weighted median Incidence
+# ============================================================
+nat_rate_median <- st_rate_chik %>%
+  group_by(ym_date) %>%
+  summarise(
+    nat_rate = median(rate_per, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+
+# ============================================================
+# 2. Attach region + compute IRR
+# ============================================================
+state_region_lookup <- tibble(
+ code_state = sprintf("%02d", c(
+ 11,12,13,14,15,16,17,
+ 21,22,23,24,25,26,27,28,29,
+ 31,32,33,35,
+ 41,42,43,
+ 50,51,52,53
+ )),
+ region = c(
+ rep("North", 7),
+ rep("Northeast", 9),
+ rep("Southeast", 4),
+ rep("South", 3),
+rep("Center-West", 4)
+ )
+ )
+
+
+st_rate_chik_region <- st_rate_chik %>%
+  mutate(code_state = substr(code_muni, 1, 2)) %>%
+  left_join(state_region_lookup, by = "code_state") %>%
+  filter(!is.na(region)) %>%
+  left_join(nat_rate_median, by = "ym_date") %>%
+  mutate(
+    IRR     = rate_per / nat_rate,
+    log_IRR = log(IRR)
+  )
+
+st_rate_chik_region$region <- factor(
+  st_rate_chik_region$region,
+  levels = c("North", "Northeast", "Center-West", "Southeast", "South")
+)
+
+
+# ============================================================
+# 3. Macro-region × month summaries (IRR)
+# ============================================================
+region_time_irr <- st_rate_chik_region %>%
+  group_by(region, ym_date) %>%
+  summarise(
+    median_logIRR = median(log_IRR, na.rm = TRUE),
+    frac_high     = mean(IRR > 1, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# ============================================================
+# 4. Macro-region × year summaries (IRR)
+# ============================================================
+region_year_irr <- st_rate_chik_region %>%
+  mutate(year = year(ym_date)) %>%
+  group_by(region, year) %>%
+  summarise(
+    median_logIRR = median(log_IRR, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# ============================================================
+# 5. Heatmap — Monthly log(IRR)
+# ============================================================
+
+p_region_heat_month <- ggplot(
+  region_time_irr,
+  aes(x = ym_date, y = region, fill = median_logIRR)
+) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#0033FF",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = 0,
+    name = "log(IRR)\n(vs national median)"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Chikungunya Relative Incidence by Macro-region (Monthly)",
+    subtitle = "Relative to national municipality-median incidence",
+    x = "Year",
+    y = "Region"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(p_region_heat_month)
+
+
+# ============================================================
+# 6. Heatmap — Annual log(IRR)
+# ============================================================
+
+p_region_heat_year <- ggplot(
+  region_year_irr,
+  aes(x = year, y = region, fill = median_logIRR)
+) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#0033FF",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = 0,
+    name = "log(IRR)\n(vs national median)"
+  ) +
+  scale_x_continuous(breaks = seq(min(region_year_irr$year),
+                                  max(region_year_irr$year), 1)) +
+  labs(
+    title = "Chikungunya Relative Incidence by Macro-region (Annual)",
+    subtitle = "Relative to national municipality-median incidence",
+    x = "Year",
+    y = "Region"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(p_region_heat_year)
+
+
+# ============================================================
+# 7. Line plot — Temporal trends (log IRR)
+# ============================================================
+p_region_line <- ggplot(
+  region_time_irr,
+  aes(x = ym_date, y = median_logIRR, color = region)
+) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_x_date(date_breaks = "2 year", date_labels = "%Y") +
+  labs(
+    title = "Temporal Trends in Relative Incidence by Macro-region",
+    subtitle = "Relative to national municipality-median incidence",
+    x = "Year",
+    y = "log(IRR)",
+    color = "Region"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(p_region_line)
+
+
+# ============================================================
+# 8. Fraction of municipalities with IRR > 1
+# ============================================================
+p_region_frac <- ggplot(
+  region_time_irr,
+  aes(x = ym_date, y = frac_high, color = region)
+) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = percent) +
+  scale_x_date(date_breaks = "2 year", date_labels = "%Y") +
+  labs(
+    title = "Fraction of Municipalities Above National Median Incidence",
+    subtitle = "IRR > 1",
+    x = "Year",
+    y = "Fraction",
+    color = "Region"
+  ) +
+  theme_minimal(base_size = 12)
+
+print(p_region_frac)
+
+
+#IR ungrouped municipality map
+
+# ============================================================
+# Municipality × time heatmap (ABSOLUTE incidence)
+# ============================================================
+
+q <- quantile(st_rate_chik$log_rate_per, c(0.01, 0.99), na.rm = TRUE)
+
+p_muni_abs <- ggplot(
+  st_rate_chik,
+  aes(x = ym_date, y = code_muni, fill = log_rate_per)
+) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "grey",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = median(st_rate_chik$log_rate_per, na.rm = TRUE),
+    limits = q,
+    oob = squish,
+    name = "log(rate / 100k)"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Chikungunya Incidence Rate Across Municipalities",
+    subtitle = "Absolute incidence rate estimated from spatial–temporal model",
+    x = "Year",
+    y = "Municipality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+print(p_muni_abs)
+
+
+
+
+#same but by latitude order
+
+muni_lat <- muni_sf %>%
+  mutate(
+    pt  = st_point_on_surface(geom),
+    lat = st_coordinates(pt)[, 2]
+  ) %>%
+  st_drop_geometry() %>%
+  select(code_muni, lat)
+
+st_rate_chik_lat <- st_rate_chik %>%
+  left_join(muni_lat, by = "code_muni") %>%
+  filter(!is.na(lat))
+summary(st_rate_chik_lat$lat)
+
+muni_order_lat <- st_rate_chik_lat %>%
+  distinct(code_muni, lat) %>%
+  arrange(lat) %>%          # south → north
+  pull(code_muni)
+
+st_rate_chik_lat <- st_rate_chik_lat %>%
+  mutate(
+    code_muni_lat = factor(code_muni, levels = muni_order_lat)
+  )
+
+
+p_muni_abs_lat <- ggplot(
+  st_rate_chik_lat,
+  aes(x = ym_date, y = code_muni_lat, fill = log_rate_per)
+) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "grey",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = median(st_rate_chik_lat$log_rate_per, na.rm = TRUE),
+    limits = q,
+    oob = squish,
+    name = "log(Incidence per 100k)"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Chikungunya Incidence Rate Across Municipalities",
+    subtitle = "Municipalities Ordered from South(bottom) to North(top) by latitude",
+    x = "Year",
+    y = "Municipality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+print(p_muni_abs_lat)
+
+
+
+check_order <- st_rate_chik_lat %>%
+  distinct(code_muni_lat, lat) %>%
+  arrange(lat) %>%
+  mutate(order = row_number())
+
+sample_labels <- check_order %>%
+  slice(c(1, 50, 200, 500, 1000, 2000, 3000, 3500, n()))
+
+ggplot(st_rate_chik_lat, aes(x = ym_date, y = code_muni_lat)) +
+  geom_blank() +
+  scale_y_discrete(
+    breaks = sample_labels$code_muni_lat,  
+    labels = paste0(round(sample_labels$lat, 2), " (", sample_labels$order, ")")
+  ) +
+  labs(y = "Latitude (south → north)") +
+  theme_minimal()
+
+
+
+
+#effect of zika
+
+ggplot(zika_nat_month, aes(x = as.Date(paste0(ym, "-01")), y = Z_t)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  labs(
+    title = "National Zika Incidence (standardized)",
+    y = "Z_t (standardized)",
+    x = "Year"
+  ) +
+  theme_minimal()
+
+
+
+#space term
+
+# =======================================
+# Spatial effect (BYM2)
+# =======================================
+
+spatial_effect <- fit_chik_interact_pop$summary.random$space %>%
+  transmute(
+    space = ID,
+    spatial_mean = mean
+  )
+
+# attach municipality code
+spatial_effect <- spatial_effect %>%
+  mutate(code_muni = space_levels[space])
+
+# join to shapefile
+muni_spatial <- muni_sf %>%
+  left_join(spatial_effect, by = "code_muni")
+
+# plot
+p_spatial <- ggplot(muni_spatial) +
+  geom_sf(aes(fill = spatial_mean), color = NA) +
+  scale_fill_gradient2(
+    low = "#0033FF",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = 0,
+    name = "Spatial random effect
+"
+  ) +
+  labs(
+    title = "Spatial Effect (BYM2)",
+    subtitle = "Persistent spatial structure in Chikungunya risk"
+  ) +
+  theme_minimal()
+
+print(p_spatial)
+
+
+#time effect
+
+# =======================================
+# Temporal effect (RW2)
+# =======================================
+
+temporal_effect <- fit_chik_interact_pop$summary.random$time %>%
+  transmute(
+    time = ID,
+    temporal_mean = mean
+  )
+
+# get actual dates
+time_lookup <- panel_chik_full %>%
+  distinct(time, ym) %>%
+  mutate(ym_date = as.Date(paste0(ym, "-01")))
+
+temporal_effect <- temporal_effect %>%
+  left_join(time_lookup, by = "time")
+
+# plot
+p_temporal <- ggplot(temporal_effect,
+                     aes(x = ym_date, y = temporal_mean)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(
+    title = "Temporal Effect (RW2)",
+    subtitle = "National temporal trend after removing spatial structure",
+    x = "Year",
+    y = "Temporal random effect"
+  ) +
+  theme_minimal()
+
+print(p_temporal)
+
+
+#space time graph
+
+# =======================================
+# Space-time interaction variance by month
+# =======================================
+
+
+interaction_effect <- fit_chik_interact_pop$summary.random$st_id %>%
+  transmute(
+    st_id = ID,
+    interaction_mean = mean
+  )
+
+st_interaction <- panel_chik_full %>%
+  distinct(code_muni, ym, st_id) %>%
+  left_join(interaction_effect, by = "st_id") %>%
+  mutate(
+    ym_date = as.Date(paste0(ym, "-01"))
+  )
+st_interaction <- st_interaction %>%
+  left_join(muni_lat, by = "code_muni") %>%
+  mutate(
+    code_muni_lat = factor(code_muni, levels = muni_order_lat)
+  )
+q_int <- quantile(st_interaction$interaction_mean,
+                  c(0.01, 0.99),
+                  na.rm = TRUE)
+
+p_interaction_heat <- ggplot(
+  st_interaction,
+  aes(x = ym_date,
+      y = code_muni_lat,
+      fill = interaction_mean)
+) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#0033FF",
+    mid = "white",
+    high = "#FF0000",
+    midpoint = 0,
+    limits = q_int,
+    oob = squish,
+    name = "Spatiotemporal\n random effect"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Space-Time Interaction Effect",
+    subtitle = "Residual municipality-specific deviations after removing spatial and temporal structure",
+    x = "Year",
+    y = "Municipality"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+print(p_interaction_heat)
+
+
+#beta
+beta_summary <- fit_chik_interact_pop$summary.fixed
+
+print(beta_summary)
+
+beta_Zt <- beta_summary["Z_t", c("mean", "0.025quant", "0.975quant", "sd")]
+print(beta_Zt)
+
+exp_beta <- exp(beta_summary["Z_t", c("mean", "0.025quant", "0.975quant")])
+print(exp_beta)
+
+#summary 
+fit_chik_interact_pop$summary.hyperpar
+
+summary(fit_chik_interact_pop$summary.random$space$mean)
+
+summary(fit_chik_interact_pop$summary.random$time$mean)
+
+summary(fit_chik_interact_pop$summary.random$st_id$mean)
+```
+
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(scales)
+library(sf)
+library(geobr)
+library(purrr)
+library(tidyr)
+
+# ======================================================
+# 1.（Age–Municipality Heatmap）
+# ======================================================
+
+df_heat <- combined_all %>%
+  filter(!is.na(age_years), age_years <= 100, !is.na(ID_MUNICIP)) %>%
+  mutate(
+    age_year = floor(age_years),
+    code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)
+  ) %>%
+  group_by(code_muni6, age_year) %>%
+  summarise(cases = n(), .groups = "drop")
+
+ggplot(df_heat, aes(x = code_muni6, y = age_year, fill = cases)) +
+  geom_tile() +
+  scale_fill_viridis_c(
+    option = "C",
+    name = "Cases",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Age–Municipality Heatmap of Reported Cases",
+    x = "Municipality (code_muni6)",
+    y = "Age (years)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank()
+  )
+
+# ======================================================
+# 2.（Boxplot by Municipality）
+# ======================================================
+
+df_box_chik <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    !is.na(age_years),
+    age_years <= 100,
+    !is.na(ID_MUNICIP)
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6))
+
+ggplot(df_box_chik, aes(x = code_muni6, y = age_years)) +
+  geom_boxplot(fill = "#fc8d62", color = "gray30", outlier.size = 0.5, outlier.alpha = 0.6) +
+  labs(
+    title = "Age Distribution by Municipality — Chikungunya (2015–2025)",
+    x = "Municipality (code_muni6)",
+    y = "Age (years)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank()
+  )
+
+# ======================================================
+#  3. （Sex–Municipality Heatmap）
+# ======================================================
+
+df_heat_sex <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    CLASSI_FIN %in% c(1, 13),
+    CS_SEXO %in% c("M", "F"),
+    !is.na(ID_MUNICIP)
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6, CS_SEXO) %>%
+  summarise(cases = n(), .groups = "drop")
+
+# case heatmap
+ggplot(df_heat_sex, aes(x = code_muni6, y = CS_SEXO, fill = cases)) +
+  geom_tile() +
+  scale_fill_viridis_c(
+    option = "C",
+    name = "Cases",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Sex–Municipality Heatmap of Chikungunya Cases (2015–2025)",
+    x = "Municipality (code_muni6)",
+    y = "Sex"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank()
+  )
+
+# ======================================================
+# ⚖️ 4.（Female/Male Ratio Heatmap）
+# ======================================================
+
+df_sex_ratio <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    CLASSI_FIN %in% c(1, 13),
+    CS_SEXO %in% c("M", "F"),
+    !is.na(ID_MUNICIP)
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6, CS_SEXO) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = CS_SEXO, values_from = cases, values_fill = 0) %>%
+  mutate(
+    total = M + F,
+    female_prop = ifelse(total > 0, F / total, NA_real_),
+    fm_ratio = ifelse(M > 0, F / M, NA_real_)
+  )
+
+# F/M 
+ggplot(df_sex_ratio, aes(x = code_muni6, y = 1, fill = fm_ratio)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#4575b4", mid = "white", high = "#d73027",
+    midpoint = 1,
+    name = "F/M ratio",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Female-to-Male Case Ratio (F/M) of Chikungunya by Municipality (2015–2025)",
+    x = "Municipality (code_muni6)",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank(),
+    axis.text.y = element_blank()
+  )
+
+# ======================================================
+# 5. （Binomial Test）
+# ======================================================
+
+df_chik <- combined_all %>%
+  filter(virus == "Chikungunya", CLASSI_FIN %in% c(1, 13), CS_SEXO %in% c("M", "F"))
+
+female_n <- sum(df_chik$CS_SEXO == "F")
+total_n  <- nrow(df_chik)
+
+prop.test(female_n, total_n, p = 0.5, alternative = "two.sided")
+
+# ======================================================
+# 🧮 6.  (proportion test by municipality)
+# ======================================================
+
+sex_by_muni <- df_chik %>%
+  group_by(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6), CS_SEXO) %>%
+  summarise(cases = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = CS_SEXO, values_from = cases, values_fill = 0)
+
+sex_by_muni <- sex_by_muni %>%
+  rowwise() %>%
+  mutate(
+    total = M + F,
+    female_prop = F / total,
+    p_value = if (total < 20) {
+      fisher.test(matrix(c(F, M, total - F, total - M), nrow = 2))$p.value
+    } else {
+      prop.test(F, total, p = 0.5)$p.value
+    }
+  ) %>%
+  ungroup()
+
+mean(sex_by_muni$p_value < 0.05)
+
+
+# ======================================================
+# 7. （Female Prop vs -log10(p)）
+# ======================================================
+
+ggplot(sex_by_muni, aes(x = female_prop, y = -log10(p_value))) +
+  geom_point(aes(size = M + F, color = p_value < 0.05), alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "gray60", "TRUE" = "red")) +
+  scale_size_continuous(name = "Total Cases", range = c(1, 8)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  labs(
+    title = "Municipality-level Sex Difference in Chikungunya Cases",
+    x = "Female Proportion",
+    y = expression(-log[10](p)),
+    color = "Significant?",
+    size = "Cases"
+  ) +
+  theme_minimal(base_size = 12)
+
+# sign vs insign municipality
+sex_summary <- sex_by_muni %>%
+  mutate(significant = p_value < 0.05) %>%
+  summarise(
+    total_cities = n(),
+    significant_n = sum(significant, na.rm = TRUE),
+    insignificant_n = sum(!significant, na.rm = TRUE),
+    significant_prop = mean(significant, na.rm = TRUE)
+  )
+
+sex_summary
+
+```
+
+
+
+Major age group focus
+```{r}
+
+age_summary_chik <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    CLASSI_FIN %in% c(1, 13),
+    !is.na(age_years),
+    age_years <= 100
+  ) %>%
+  summarise(
+    n_cases = n(),
+    Q1 = quantile(age_years, 0.25, na.rm = TRUE),
+    Median = median(age_years, na.rm = TRUE),
+    Q3 = quantile(age_years, 0.75, na.rm = TRUE)
+  )
+
+age_summary_chik
+
+```
+
+
+
+
+```{r}
+
+chik_monthly_24_54 <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    CLASSI_FIN %in% c(1, 13),
+    !is.na(DT_SIN_PRI),
+    !is.na(age_years),
+    age_years >= 24, age_years <= 54
+  ) %>%
+  mutate(
+    year_month = floor_date(as.Date(DT_SIN_PRI), "month")
+  ) %>%
+  group_by(year_month) %>%
+  summarise(cases = n(), .groups = "drop")
+
+
+ggplot(chik_monthly_24_54, aes(x = year_month, y = cases)) +
+  geom_line(color = viridis::viridis(1, option = "C"), linewidth = 1) +
+  geom_point(size = 0.8, color = viridis::viridis(1, option = "C")) +
+  scale_x_date(
+    date_breaks = "1 year", date_labels = "%Y",
+    expand = expansion(mult = c(0.01, 0.01))
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Monthly Reported Chikungunya Cases (Age 24–54)",
+    subtitle = "2015–2025 | Confirmed cases only (CLASSI_FIN 1, 13)",
+    x = "Month",
+    y = "Number of cases"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    plot.title = element_text(face = "bold")
+  )
+
+
+```
+
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
+
+
+symptom_vars <- c(
+  "FEBRE","MIALGIA","CEFALEIA","EXANTEMA","VOMITO","NAUSEA",
+  "DOR_COSTAS","ARTRITE","ARTRALGIA","DOR_RETRO"
+)
+
+
+Chik_confirmed <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1,13)) %>%   
+  filter(!is.na(DT_SIN_PRI)) %>%
+  mutate(
+    dt   = DT_SIN_PRI,
+    year = as.numeric(format(DT_SIN_PRI, "%Y"))
+  )
+
+
+Chik_clean <- Chik_confirmed %>%
+  mutate(across(all_of(symptom_vars), ~ as.numeric(.x == 1)))
+
+
+symptom_summary <- Chik_clean %>%
+  summarise(across(all_of(symptom_vars), ~ mean(.x, na.rm = TRUE) * 100)) %>%
+  pivot_longer(cols = everything(), names_to="symptom", values_to="percentage")
+
+p_left <- ggplot(symptom_summary, aes(x = percentage, y = symptom)) +
+  geom_col(fill="black") +
+  labs(x="Overall %", y=NULL, title="Symptom Frequency") +
+  theme_minimal()
+
+
+set.seed(1)
+
+Chik_sample <- Chik_clean %>%
+  group_by(year) %>%
+  slice_sample(n=10) %>%        
+  ungroup() %>%
+  arrange(dt) %>%
+  mutate(case_id = row_number())
+
+plot_matrix <- Chik_sample %>%
+  select(case_id, all_of(symptom_vars)) %>%
+  pivot_longer(cols = all_of(symptom_vars),
+               names_to="symptom",
+               values_to="present")
+
+p_right <- ggplot(plot_matrix, aes(x=symptom, y=case_id)) +
+  geom_point(aes(fill=present), shape=21, color="black", size=2) +
+  scale_fill_gradient(low="white", high="black") +
+  scale_y_reverse() +
+  labs(x="Symptom", y="Cases (10 per year)", title="Case-by-Symptom Matrix") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.position="none")
+
+# Combine
+final_plot <- p_left | p_right
+final_plot
+
+
+```
+
+
+```{r}
+
+
+library(broom)
+
+results <- lapply(symptom_vars, function(sym){
+
+  df <- Chik_clean %>%
+    select(year, present = all_of(sym)) %>%
+    filter(!is.na(present))
+
+  fit <- glm(present ~ year, data=df, family=binomial)
+
+  tidy_fit <- broom::tidy(fit)
+
+  data.frame(
+    symptom  = sym,
+    coef_year = tidy_fit$estimate[2],
+    p_value   = tidy_fit$p.value[2]
+  )
+})
+
+results_df <- bind_rows(results) %>%
+  mutate(trend = ifelse(p_value < 0.05, "CHANGED", "STABLE"))
+
+print(results_df)
+
+
+Chik_year_missing <- Chik_confirmed %>%
+group_by(year) %>%
+summarise(
+ missing_rate = mean(is.na(FEBRE))  
+)
+
+print(Chik_year_missing)
+
+symptom_year_trend <- Chik_clean %>%
+group_by(year) %>%
+summarise(across(all_of(symptom_vars),
+                 ~ mean(.x, na.rm = TRUE) * 100)) %>%
+arrange(year)
+
+print(symptom_year_trend)
+```
+
+```{r}
+
+# ============================================================
+# Chikungunya symptom co-occurrence UpSet plot
+# ============================================================
+
+library(dplyr)
+library(UpSetR)
+
+# ------------------------------------------------------------
+# 1. Symptom variables & English translation
+# ------------------------------------------------------------
+symptom_map <- c(
+  FEBRE       = "Fever",
+  MIALGIA     = "Myalgia",
+  CEFALEIA    = "Headache",
+  EXANTEMA   = "Rash",
+  VOMITO      = "Vomiting",
+  NAUSEA      = "Nausea",
+  DOR_COSTAS  = "Back pain",
+  ARTRITE     = "Arthritis",
+  ARTRALGIA   = "Arthralgia",
+  DOR_RETRO   = "Retro-orbital pain"
+)
+
+symptom_vars <- names(symptom_map)
+
+# ------------------------------------------------------------
+# 2. Keep confirmed chikungunya cases only
+# ------------------------------------------------------------
+Chik_confirmed <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13)) %>%
+  filter(!is.na(DT_SIN_PRI))
+
+# ------------------------------------------------------------
+# 3. Convert symptom indicators to binary (0/1)
+# ------------------------------------------------------------
+Chik_clean <- Chik_confirmed %>%
+  mutate(across(all_of(symptom_vars), ~ as.numeric(.x == 1)))
+
+# ------------------------------------------------------------
+# 4. Create UpSet input (list format)
+# ------------------------------------------------------------
+symptom_list <- lapply(symptom_vars, function(sym) {
+  which(Chik_clean[[sym]] == 1)
+})
+
+names(symptom_list) <- symptom_map[symptom_vars]  # English labels
+
+upset_input <- fromList(symptom_list)
+
+# ------------------------------------------------------------
+# 5. UpSet plot (FIXED)
+# ------------------------------------------------------------
+upset(
+  upset_input,
+  sets = colnames(upset_input), 
+  order.by = "freq",
+  nintersects = 40,
+  point.size = 3,
+  line.size = 1,
+  number.angles = 30,
+  sets.x.label = "Population size",
+  text.scale = 1.4
+)
+
+
+
+
+
+
+
+#calculate percentage of each combo
+library(dplyr)
+
+# ------------------------------------------------------------
+# 1. Symptom variables
+# ------------------------------------------------------------
+symptom_vars <- c(
+  "FEBRE","MIALGIA","CEFALEIA","EXANTEMA","VOMITO","NAUSEA",
+  "DOR_COSTAS","ARTRITE","ARTRALGIA","DOR_RETRO"
+)
+
+# ------------------------------------------------------------
+# 2. Confirmed chikungunya cases only
+# ------------------------------------------------------------
+Chik_clean <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13)) %>%
+  filter(!is.na(DT_SIN_PRI)) %>%
+  mutate(across(all_of(symptom_vars), ~ .x == 1))
+
+N_total <- nrow(Chik_clean)
+
+# ------------------------------------------------------------
+# 3. Collapse to symptom-combination level
+# ------------------------------------------------------------
+combo_df <- Chik_clean %>%
+  count(across(all_of(symptom_vars)), name = "n") %>%
+  mutate(
+    percentage = n / N_total,
+    percentage_label = paste0(
+      scales::comma(n),
+      " (",
+      scales::percent(percentage, accuracy = 0.1),
+      ")"
+    )
+  ) %>%
+  arrange(desc(n))
+
+# ------------------------------------------------------------
+# 4. View / export
+# ------------------------------------------------------------
+print(combo_df)
+
+# optional: export for Illustrator annotation
+# write.csv(combo_df, "symptom_combinations_with_percentage.csv", row.names = FALSE)
+
+
+```
+
+
+
+sex diff symptom using 2022 population census
+```{r}
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+
+pop_sex <- data.frame(
+  sex = c("Male", "Female"),
+  population = c(98532431, 104548325)
+)
+
+# ------------------------------------------------------------
+# 1. Symptom variables & English labels
+# ------------------------------------------------------------
+symptom_vars <- c(
+  "FEBRE","MIALGIA","CEFALEIA","EXANTEMA","VOMITO","NAUSEA",
+  "DOR_COSTAS","ARTRITE","ARTRALGIA","DOR_RETRO"
+)
+
+symptom_labels <- c(
+  FEBRE = "Fever",
+  MIALGIA = "Myalgia",
+  CEFALEIA = "Headache",
+  EXANTEMA = "Rash",
+  VOMITO = "Vomiting",
+  NAUSEA = "Nausea",
+  DOR_COSTAS = "Back pain",
+  ARTRITE = "Arthritis",
+  ARTRALGIA = "Arthralgia",
+  DOR_RETRO = "Retro-orbital pain"
+)
+
+# ------------------------------------------------------------
+# 2. Keep confirmed cases only + binary symptoms
+# ------------------------------------------------------------
+symptom_sex_inc <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13)) %>%
+  filter(!is.na(DT_SIN_PRI)) %>%
+  mutate(across(all_of(symptom_vars), ~ .x == 1)) %>%
+  pivot_longer(
+    cols = all_of(symptom_vars),
+    names_to = "symptom",
+    values_to = "present"
+  ) %>%
+  group_by(symptom, CS_SEXO) %>%
+  summarise(
+    n_cases = sum(present, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    symptom = symptom_labels[symptom],
+    sex = case_when(
+      CS_SEXO == "M" ~ "Male",
+      CS_SEXO == "F" ~ "Female",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(sex)) %>%
+  left_join(pop_sex, by = "sex") %>%
+  mutate(
+    incidence = n_cases / population * 1e5,
+    inc_plot = ifelse(sex == "Male", -incidence, incidence)
+  )
+
+# ------------------------------------------------------------
+# 3. Define ordering: total incidence across sexes
+# ------------------------------------------------------------
+
+order_levels <- symptom_sex_inc %>%
+  group_by(symptom) %>%
+  summarise(total_inc = sum(incidence), .groups = "drop") %>%
+  arrange(total_inc) %>%
+  pull(symptom)
+
+# ------------------------------------------------------------
+# 4. Plot mirrored incidence bar chart
+# ------------------------------------------------------------
+
+ggplot(
+  symptom_sex_inc,
+  aes(
+    x = inc_plot,
+    y = factor(symptom, levels = order_levels),
+    fill = sex
+  )
+) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, color = "black") +
+  scale_x_continuous(
+    labels = abs,
+    name = "Incidence (per 100,000 population)"
+  ) +
+  scale_fill_manual(
+    values = c("Male" = "#00BFC4", "Female" = "#F8766D")
+  ) +
+  labs(
+    y = NULL,
+    fill = NULL,
+    title = "Chikungunya Symptom Incidence by Sex"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom"
+  )
+
+```
+
+
+
+symptom by age using 2022 population census
+```{r}
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# ============================================================
+# 1️⃣ Age group population (IBGE 2022)
+# ============================================================
+
+pop_age <- data.frame(
+  age_group = c("<15","15–29","30–44","45–59","≥60"),
+  population = c(
+    12704860 + 13749440 + 13674961,
+    14375942 + 15466463 + 15469723,
+    15473117 + 16172791 + 16072170,
+    13640112 + 12598581 + 11569106,
+    9944389 + 7876232 + 5858536 +
+      3847379 + 2475030 + 1329203 +
+      579729 + 165178 + 37814
+  )
+)
+
+# ============================================================
+# 2️⃣ Prepare age groups
+# ============================================================
+
+Chik_age_clean <- Chik_total %>%
+  filter(CLASSI_FIN %in% c(1, 13)) %>%
+  filter(!is.na(age_years)) %>%
+  mutate(
+    age_group = case_when(
+      age_years < 15 ~ "<15",
+      age_years >= 15 & age_years <= 29 ~ "15–29",
+      age_years >= 30 & age_years <= 44 ~ "30–44",
+      age_years >= 45 & age_years <= 59 ~ "45–59",
+      age_years >= 60 ~ "≥60"
+    ),
+    age_group = factor(
+      age_group,
+      levels = c("<15","15–29","30–44","45–59","≥60")
+    )
+  ) %>%
+  mutate(across(all_of(symptom_vars), ~ .x == 1))
+
+# ============================================================
+# 3️⃣ Summarise + calculate incidence
+# ============================================================
+
+symptom_age_inc <- Chik_age_clean %>%
+  pivot_longer(
+    cols = all_of(symptom_vars),
+    names_to = "symptom",
+    values_to = "present"
+  ) %>%
+  group_by(age_group, symptom) %>%
+  summarise(
+    n_cases = sum(present, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  left_join(pop_age, by = "age_group") %>%
+  mutate(
+    incidence = n_cases / population * 1e5,
+    symptom = symptom_labels[symptom]
+  )
+
+# ============================================================
+# 4️⃣ Plot incidence heatmap
+# ============================================================
+
+ggplot(
+  symptom_age_inc,
+  aes(x = age_group, y = symptom, fill = incidence)
+) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "white",
+    high = "#D73027",
+    name = "Incidence\n(per 100,000)"
+  ) +
+  labs(
+    x = "Age group",
+    y = NULL,
+    title = "Chikungunya Symptom Incidence by Age Group"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid = element_blank()
+  )
+
+
+
+
+```
+
+pop_age <- gamdata %>%
+  rename(age_year = Age, race_label = Race, population = Population) %>%
+  mutate(
+    age_year = as.integer(age_year),
+    race_label = recode(race_label, "Pardo" = "Pardo (Mixed)")
+  ) %>%
+  group_by(age_year) %>%
+  summarise(pop_age = sum(population, na.rm = TRUE), .groups = "drop")
+
+
+cases_age_year_virus <- combined_all %>%
+  mutate(
+    year = as.integer(format(as.Date(DT_SIN_PRI), "%Y")),
+    age_year = pmin(100L, floor(age_years)),
+    confirmed = case_when(
+      virus == "Zika" & CLASSI_FIN == 1 ~ TRUE,
+      virus == "Chikungunya" & CLASSI_FIN %in% c(1, 13) ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>%
+  filter(confirmed, !is.na(age_year), age_year <= 100) %>%
+  count(virus, year, age_year, name = "cases")
+
+age_incidence <- cases_age_year_virus %>%
+  left_join(pop_age, by = "age_year") %>%
+  mutate(
+    incidence_per_100k = cases / pop_age * 100000
+  )
+age_incidence_mean <- age_incidence %>%
+  group_by(virus, age_year) %>%
+  summarise(
+    cases = sum(cases),
+    pop_age = first(pop_age),
+    incidence_per_100k = cases / pop_age * 100000,
+    .groups = "drop"
+  )
+
+
+ggplot(age_incidence_mean,
+       aes(x = age_year, y = incidence_per_100k, color = virus)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("Chikungunya" = "#fc8d62",
+                                "Zika" = "#66c2a5")) +
+  labs(
+    title = "Age-specific Incidence per 100k (Average 2015–2025)",
+    x = "Age (years)",
+    y = "Incidence per 100,000",
+    color = "Virus"
+  ) +
+  theme_minimal(base_size = 13)
+
+
+
+ggplot(age_incidence, aes(x = year, y = age_year, fill = incidence_per_100k)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "C") +
+  facet_wrap(~ virus, ncol = 1) +
+  labs(
+    title = "Age-Year Specific Incidence Heatmap (per 100k)",
+    x = "Year",
+    y = "Age",
+    fill = "Incidence"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid = element_blank()
+  )
+
+
+
+
+```{r}
+
+race_year_summary <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    CLASSI_FIN %in% c(1, 13),
+    year >= 2015,
+    year <= 2025,
+    !is.na(CS_RACA)
+  ) %>%
+  group_by(year, CS_RACA) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(
+    race_label = case_when(
+      CS_RACA == 1 ~ "White",
+      CS_RACA == 2 ~ "Black",
+      CS_RACA == 3 ~ "Asian",
+      CS_RACA == 4 ~ "Pardo (Mixed)",
+      CS_RACA == 5 ~ "Indigenous",
+      CS_RACA == 9 ~ "Unknown",
+      TRUE ~ "Unspecified"
+    )
+  )
+
+ggplot(race_year_summary,
+       aes(x = year, y = n, fill = race_label)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(labels = label_comma()) +   # 👈 关键
+  labs(
+    title = "Ethnicity distribution of confirmed chikungunya cases (2015–2025)",
+    x = "Year",
+    y = "Number of confirmed cases",
+    fill = "Race / Ethnicity"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+
+```
+
+
+
+
+updated survival curve
+```{r}
+# =========================================================
+# Packages (exactly from the tutorial)
+# =========================================================
+library(dplyr)
+library(lubridate)
+library(survival)
+library(ggsurvfit)
+
+# =========================================================
+# 0) Helper
+# =========================================================
+as_date_safe <- function(x) as.Date(x)
+
+# =========================================================
+# 1) Build survival dataset for 3 intervals
+# =========================================================
+build_surv_dataset_3intervals <- function(df, virus_label, interval, group_var,
+                                         xlim_days = c(0, 180)) {
+
+  df <- df %>%
+    filter(virus == virus_label) %>%
+    mutate(
+      onset   = as_date_safe(DT_SIN_PRI),
+      hosp    = as_date_safe(DT_INTERNA),
+      death   = as_date_safe(DT_OBITO),
+      end_fu  = as_date_safe(DT_ENCERRA),
+      grp     = droplevels(factor(.data[[group_var]]))
+    )
+
+  if (interval == "onset_to_death") {
+    d <- df %>%
+      mutate(
+        t_event  = death_delay,
+        t_censor = as.numeric(end_fu - hosp),
+        status   = ifelse(case_status == "Death" & !is.na(t_event), 1L, 0L),
+        t_obs    = ifelse(status == 1L, t_event, t_censor),
+        t_obs    = ifelse(is.na(t_obs), xlim_days[2], t_obs),
+        t_obs    = pmin(pmax(t_obs, xlim_days[1]), xlim_days[2])
+      ) %>%
+      filter(!is.na(t_obs), !is.na(grp))
+  }
+
+  if (interval == "onset_to_hosp") {
+    d <- df %>%
+      mutate(
+        t_event  = hosp_delay,
+        t_censor = as.numeric(end_fu - hosp),
+        status   = ifelse(!is.na(t_event), 1L, 0L),
+        t_obs    = ifelse(status == 1L, t_event, t_censor),
+        t_obs    = ifelse(is.na(t_obs), xlim_days[2], t_obs),
+        t_obs    = pmin(pmax(t_obs, xlim_days[1]), xlim_days[2])
+      ) %>%
+      filter(!is.na(t_obs), !is.na(grp))
+  }
+
+  if (interval == "hosp_to_death") {
+    d <- df %>%
+      filter(!is.na(hosp)) %>%
+      mutate(
+        t_event  = as.numeric(death - hosp),
+        t_censor = as.numeric(end_fu - hosp),
+        status   = ifelse(case_status == "Death" & !is.na(t_event), 1L, 0L),
+        t_obs    = ifelse(status == 1L, t_event, t_censor),
+        t_obs    = ifelse(is.na(t_obs), xlim_days[2], t_obs),
+        t_obs    = pmin(pmax(t_obs, xlim_days[1]), xlim_days[2])
+      ) %>%
+      filter(!is.na(t_obs), t_obs >= 0, !is.na(grp))
+  }
+
+  d
+}
+
+# =========================================================
+# 2) Kaplan–Meier plot
+# =========================================================
+plot_km_interval <- function(df, interval, group_var,
+                             xlim_days = c(0, 180),
+                             title_prefix = NULL) {
+
+  interval_label <- dplyr::case_when(
+    interval == "onset_to_hosp"  ~ "Onset → Hospitalization",
+    interval == "hosp_to_death"  ~ "Hospitalization → Death",
+    interval == "onset_to_death" ~ "Onset → Death",
+    TRUE ~ interval
+  )
+
+  if (is.null(title_prefix)) title_prefix <- "Kaplan–Meier"
+
+  d <- build_surv_dataset_3intervals(
+    df = df,
+    virus_label = "Chikungunya",
+    interval = interval,
+    group_var = group_var,
+    xlim_days = xlim_days
+  )
+
+  if (nrow(d) < 10 || dplyr::n_distinct(d$grp) < 2) {
+    message("[SKIP] ", interval_label, " by ", group_var)
+    return(invisible(NULL))
+  }
+  
+  if (group_var == "CS_SEXO") {
+    d <- d %>%
+      filter(grp %in% c("M", "F")) %>%
+      droplevels()
+  }
+  if (group_var == "race_label") {
+    d <- d %>%
+      filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
+      droplevels()
+  }
+
+
+  survfit2(Surv(t_obs, status) ~ grp, data = d) |>
+    ggsurvfit() +
+    add_confidence_interval() +
+    coord_cartesian(xlim = xlim_days) +
+    labs(
+      title = paste0(title_prefix, ": ", interval_label, " (Chikungunya)"),
+      x = "Days",
+      y = "Survival probability",
+      color = group_var
+    )
+}
+
+# =========================================================
+# 3) Generate the 9 plots
+# =========================================================
+interval_specs <- list(
+  onset_to_hosp  = list(xlim = c(0, 60)),
+  hosp_to_death  = list(xlim = c(0, 60)),
+  onset_to_death = list(xlim = c(0, 180))
+)
+
+group_vars <- c(
+  age  = "age_group_surv",
+  sex  = "CS_SEXO",
+  race = "race_label"
+)
+
+for (int_name in names(interval_specs)) {
+  for (gname in names(group_vars)) {
+
+    p <- plot_km_interval(
+      df = combined_all,
+      interval = int_name,
+      group_var = group_vars[[gname]],
+      xlim_days = interval_specs[[int_name]]$xlim,
+      title_prefix = paste0("KM by ", gname)
+    )
+
+    if (!is.null(p)) print(p)
+  }
+}
+
+#log rank test
+
+for (int_name in names(interval_specs)) {
+  for (gname in names(group_vars)) {
+
+    cat("\n==============================\n")
+    cat("Interval:", int_name, "| Group:", gname, "\n")
+
+    # ---- 1) build survival dataset
+    d <- build_surv_dataset_3intervals(
+      df = combined_all,
+      virus_label = "Chikungunya",
+      interval = int_name,
+      group_var = group_vars[[gname]],
+      xlim_days = interval_specs[[int_name]]$xlim
+    )
+
+    # ---- 2) filter unwanted levels
+    if (group_vars[[gname]] == "CS_SEXO") {
+      d <- d %>%
+        filter(grp %in% c("M", "F")) %>%
+        droplevels()
+    }
+
+    if (group_vars[[gname]] == "race_label") {
+      d <- d %>%
+        filter(grp %in% c(
+          "Asian",
+          "Black",
+          "Indigenous",
+          "Pardo (Mixed)",
+          "White"
+        )) %>%
+        droplevels()
+    }
+
+    # ---- 3) skip if not enough data
+    if (nrow(d) < 10 || dplyr::n_distinct(d$grp) < 2) {
+      cat("SKIP (insufficient data after filtering)\n")
+      next
+    }
+
+    # ---- 4) log-rank test
+    lr <- survdiff(Surv(t_obs, status) ~ grp, data = d)
+
+    print(lr)
+
+    # ---- 5) also print p-value explicitly
+    p_val <- 1 - pchisq(lr$chisq, df = length(lr$n) - 1)
+    cat("Log-rank p-value =", format.pval(p_val, digits = 3), "\n")
+  }
+}
+
+
+
+
+
+#Cox regression model
+library(gtsummary)
+
+
+run_cox <- function(d, formula_rhs) {
+
+  fit <- coxph(
+    as.formula(paste0("Surv(t_obs, status) ~ ", formula_rhs)),
+    data = d
+  )
+
+  tbl <- tbl_regression(
+    fit,
+    exp = TRUE
+  )
+
+  list(
+    fit = fit,
+    table = tbl
+  )
+}
+
+cox_results <- list()
+
+for (int_name in names(interval_specs)) {
+  for (gname in names(group_vars)) {
+
+    cat("\n==============================\n")
+    cat("Interval:", int_name, "| Group:", gname, "\n")
+
+    d <- build_surv_dataset_3intervals(
+      df = combined_all,
+      virus_label = "Chikungunya",
+      interval = int_name,
+      group_var = group_vars[[gname]],
+      xlim_days = interval_specs[[int_name]]$xlim
+    )
+    d <- d %>%
+  mutate(grp = factor(grp, ordered = FALSE))
+
+    if (group_vars[[gname]] == "CS_SEXO") {
+      d <- d %>%
+        filter(grp %in% c("M", "F")) %>%
+        droplevels()
+    }
+     if (group_vars[[gname]] == "race_label") {
+      d <- d %>%
+        filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
+        droplevels()
+    }
+
+    if (nrow(d) < 10 || dplyr::n_distinct(d$grp) < 2) {
+      cat("SKIP (insufficient data)\n")
+      next
+    }
+
+    res <- run_cox(d, "grp")
+
+    cox_results[[paste(int_name, gname, sep = "__")]] <- res
+
+    print(summary(res$fit))
+
+    print(res$table)
+  }
+}
+
+
+
+
+```
+
+
+
+median delay map
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(sf)
+
+# --------------------------------------------------
+# 0)  municipality shapefile
+# --------------------------------------------------
+muni_sf <- read_municipality(
+  year = 2020,
+  showProgress = FALSE,
+  cache = FALSE
+) %>%
+  mutate(code_muni6 = substr(as.character(code_muni), 1, 6))
+
+# municipality × virus
+all_muni_virus <- expand.grid(
+  code_muni6 = unique(muni_sf$code_muni6),
+  virus = unique(combined_all$virus)
+)
+
+# --------------------------------------------------
+death_delay_muni <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    case_status == "Death",
+    !is.na(death_delay),
+    death_delay >= 0
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6) %>%
+  summarise(
+    median_delay = median(death_delay, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+death_delay_map <- muni_sf %>%
+  left_join(death_delay_muni, by = "code_muni6")
+
+ggplot(death_delay_map) +
+  geom_sf(aes(fill = median_delay), color = NA) +
+  scale_fill_viridis_c(
+    name = "Median delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob = squish,
+    na.value = "lightgrey"
+  ) +
+  labs(
+    title = "Median Time from Symptom Onset to Death by Municipality\n(Chikungunya, 2015–2025)"
+  ) +
+  theme_minimal()
+
+
+report_delay_muni <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    !is.na(report_delay),
+    report_delay >= 0
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6) %>%
+  summarise(
+    median_delay = median(report_delay, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+report_delay_map <- muni_sf %>%
+  left_join(report_delay_muni, by = "code_muni6")
+
+ggplot(report_delay_map) +
+  geom_sf(aes(fill = median_delay), color = NA) +
+  scale_fill_viridis_c(
+    name = "Median delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob = squish,
+    na.value = "lightgrey"
+  ) +
+  labs(
+    title = "Median Time from Symptom Onset to Notification by Municipality\n(Chikungunya, 2015–2025)"
+  ) +
+  theme_minimal()
+
+
+hosp_delay_muni <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    HOSPITALIZ == "1",
+    !is.na(hosp_delay),
+    hosp_delay >= 0
+  ) %>%
+  mutate(code_muni6 = substr(as.character(ID_MUNICIP), 1, 6)) %>%
+  group_by(code_muni6) %>%
+  summarise(
+    median_delay = median(hosp_delay, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+hosp_delay_map <- muni_sf %>%
+  left_join(hosp_delay_muni, by = "code_muni6")
+
+ggplot(hosp_delay_map) +
+  geom_sf(aes(fill = median_delay), color = NA) +
+  scale_fill_viridis_c(
+    name = "Median delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob = squish,
+    na.value = "lightgrey"
+  ) +
+  labs(
+    title = "Median Time from Symptom Onset to Hospitalization by Municipality\n(Chikungunya, 2015–2025)"
+  ) +
+  theme_minimal()
+
+# --------------------------------------------------
+# 4️⃣ Hospitalization → Death（median delay，Chikungunya only）
+# --------------------------------------------------
+
+hosp_to_death_delay_muni <- combined_all %>%
+  filter(
+    virus == "Chikungunya",
+    HOSPITALIZ == "1",
+    case_status == "Death",
+    !is.na(DT_INTERNA),
+    !is.na(DT_OBITO)
+  ) %>%
+  mutate(
+    code_muni6 = substr(as.character(ID_MUNICIP), 1, 6),
+    hosp_to_death_delay = as.numeric(as.Date(DT_OBITO) - as.Date(DT_INTERNA))
+  ) %>%
+  filter(hosp_to_death_delay >= 0) %>%  
+  group_by(code_muni6) %>%
+  summarise(
+    median_delay = median(hosp_to_death_delay, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+hosp_to_death_delay_map <- muni_sf %>%
+  left_join(hosp_to_death_delay_muni, by = "code_muni6")
+
+ggplot(hosp_to_death_delay_map) +
+  geom_sf(aes(fill = median_delay), color = NA) +
+  scale_fill_viridis_c(
+    name   = "Median delay (days)",
+    limits = c(0, 50),
+    breaks = seq(0, 50, 10),
+    oob    = squish,
+    na.value = "lightgrey"
+  ) +
+  labs(
+    title = "Median Time from Hospitalization to Death by Municipality\n(Chikungunya, 2015–2025)"
+  ) +
+  theme_minimal()
+
+
+
+```
