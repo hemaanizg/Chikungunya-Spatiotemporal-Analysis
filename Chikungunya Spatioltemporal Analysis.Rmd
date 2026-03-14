@@ -4035,8 +4035,17 @@ for (int_name in names(interval_specs)) {
   }
 }
 
+res <- run_cox(d, "grp")
 
+cox_results[[paste(int_name, gname, sep = "__")]] <- res
 
+print(summary(res$fit))
+
+print(res$table)
+
+# --- PH assumption test ---
+ph_test <- cox.zph(res$fit)
+print(ph_test)
 
 ```
 
