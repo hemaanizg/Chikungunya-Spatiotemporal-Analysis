@@ -521,28 +521,24 @@ ggplot(age_year_summary, aes(x = year, y = percentage, fill = age_group)) +
 
 wavelet analysis
 ```{r}
-
-
 # ============================================================
 # 0. Libraries
 # ============================================================
-
+library(gridGraphics)
 library(dplyr)
 library(lubridate)
 library(WaveletComp)
+library(ggplot2)
+library(cowplot)
 
 # ============================================================
 # 1. Create National Monthly Time Series (2015–2025)
 # ============================================================
-
 monthly_cases <- combined_all %>%
-  filter(
-    virus == "Chikungunya",
-    !is.na(DT_NOTIFIC)
-  ) %>%
+  filter(virus == "Chikungunya", !is.na(DT_NOTIFIC)) %>%
   mutate(
-    date = as.Date(DT_NOTIFIC),
-    year = year(date),
+    date  = as.Date(DT_NOTIFIC),
+    year  = year(date),
     month = month(date)
   ) %>%
   filter(year >= 2015, year <= 2025) %>%
@@ -550,10 +546,9 @@ monthly_cases <- combined_all %>%
   summarise(cases = n(), .groups = "drop") %>%
   arrange(year, month)
 
-# Fill missing months with 0
 all_months <- data.frame(
-  year = rep(2015:2025, each = 12),
-  month = rep(1:12, times = length(2015:2025))
+  year  = rep(2015:2025, each = 12),
+  month = rep(1:12, times = 11)
 )
 
 monthly_cases <- all_months %>%
@@ -564,72 +559,84 @@ monthly_cases <- all_months %>%
 # ============================================================
 # 2. Wavelet Transform
 # ============================================================
-
 wavelet_data <- data.frame(
-  time = 1:nrow(monthly_cases),
+  date  = format(seq(as.Date("2015-01-01"), by = "month",
+                     length.out = nrow(monthly_cases)), "%Y-%m-%d"),
   cases = monthly_cases$cases
 )
 
 wt <- analyze.wavelet(
   wavelet_data,
-  my.series = "cases",
-  loess.span = 0,
-  dt = 1/12,
-  dj = 1/20,
+  my.series   = "cases",
+  loess.span  = 0,
+  dt          = 1/12,
+  dj          = 1/20,
   lowerPeriod = 2/12,
   upperPeriod = 5,
-  make.pval = TRUE,
-  n.sim = 200
+  make.pval   = TRUE,
+  n.sim       = 200,
+  date.format = "%Y-%m-%d"
 )
 
 # ============================================================
-# 3. Create Publication-Ready Scalogram
+# 3. Scalogram (Panel C) - capture as recordPlot
 # ============================================================
-
-png("Wavelet_Scalogram_Chikungunya_2015_2025.png",
-    width = 1600, height = 1200, res = 200)
 
 wt.image(
   wt,
-  color.key = "interval",
-  n.levels = 250,
+  color.key     = "interval",
+  n.levels      = 250,
   legend.params = list(lab = "Wavelet Power"),
-  show.date = FALSE,
-  periodlab = "Period (Years)",
-  timelab = "Month",
-  main = "Wavelet Power Spectrum of Monthly Chikungunya Cases\nBrazil, 2015–2025",
-  siglvl = 0.05,
+  show.date     = TRUE,
+  date.format   = "%Y-%m-%d",
+  periodlab     = "Period (Years)",
+  timelab       = "Year",
+  siglvl        = 0.05,
+  spec.time.axis = list(
+    at     = format(seq(as.Date("2015-01-01"), by = "year", length.out = 11), "%Y-%m-%d"),
+    labels = as.character(2015:2025)
+  )
 )
 
-# Custom x-axis with real years
-axis(
-  side = 1,
-  at = seq(1, nrow(monthly_cases), by = 12),
-  labels = 2015:2025
+# ============================================================
+# 4. Global Wavelet Power Spectrum (Panel B)
+# ============================================================
+gws <- data.frame(
+  period = wt$Period,
+  power  = wt$Power.avg,
+  pval   = wt$Power.avg.pval
 )
+gws$sig <- gws$pval < 0.01
 
-dev.off()
+period_breaks <- c(2/12, 0.5, 1, 2, 3, 5)
+period_labels <- c("2 mo", "6 mo", "1 yr", "2 yr", "3 yr", "5 yr")
 
-# ============================================================
-# 4. Global Wavelet Spectrum (Optional but Included)
-# ============================================================
+pB <- ggplot(gws, aes(x = period)) +
+  geom_ribbon(
+    data = subset(gws, sig),
+    aes(ymin = 0, ymax = power, fill = "p < 0.01 vs AR(1) red noise"),
+    alpha = 0.25
+  ) +
+  geom_line(aes(y = power, color = "global wavelet power"), linewidth = 0.7) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "grey40") +
+  annotate("text", x = 1.05, y = max(gws$power) * 0.97,
+           label = "1 year", hjust = 0, size = 3.2, color = "grey25") +
+  scale_x_log10(breaks = period_breaks, labels = period_labels,
+                expand = expansion(mult = c(0.01, 0.01))) +
+  scale_fill_manual(values  = c("p < 0.01 vs AR(1) red noise" = "#B2182B"), name = NULL) +
+  scale_color_manual(values = c("global wavelet power" = "black"), name = NULL) +
+  labs(x = "Period", y = "Average wavelet power",
+       title = "B", subtitle = "Global wavelet power spectrum") +
+  theme_classic(base_size = 11) +
+  theme(
+    plot.title             = element_text(face = "bold", size = 13),
+    plot.subtitle          = element_text(size = 10, color = "grey25"),
+    legend.position        = "inside",
+    legend.position.inside = c(0.75, 0.75),
+    legend.key.width       = unit(1.5, "cm")
+  )
 
-png("Global_Wavelet_Spectrum_Chikungunya_2015_2025.png",
-    width = 1000, height = 800, res = 200)
-
-wt.avg(
-  wt,
-  main = "Global Wavelet Spectrum\nBrazil 2015–2025"
-)
-
-dev.off()
-
-# ============================================================
-# 5. Save Wavelet Object
-# ============================================================
-
-saveRDS(wt, "wavelet_result_2015_2025.rds")
-
+print(pB)
 ```
 
 
@@ -813,6 +820,16 @@ ggplot(overall_cfr, aes(x = virus, y = CFR, fill = virus)) +
   theme_minimal() +
   theme(legend.position = "none")
 
+# Proportion of missing/ignored race records among confirmed Chikungunya cases
+race_missing <- combined_all %>%
+  filter(virus == "Chikungunya", CLASSI_FIN %in% c(1, 13)) %>%
+  summarise(
+    total = n(),
+    ignored = sum(CS_RACA == 9 | is.na(CS_RACA), na.rm = TRUE),
+    pct_ignored = round(ignored / total * 100, 1)
+  )
+
+print(race_missing)
 ```
 
 Geographical mapping
@@ -1569,7 +1586,7 @@ km_data_by <- function(df, virus_label, group_var,
 
 
 
-
+mortality
 ```{r}
 #overall incidence by year
 library(dplyr); library(ggplot2); library(scales)
@@ -1635,7 +1652,7 @@ ggplot(deaths_year, aes(x = year, y = mortality_per_100k, fill = virus)) +
 ```
 
 
-
+weekly incidence by muni
 ```{r}
 
   library(dplyr)
@@ -1767,6 +1784,7 @@ wk_nat %>%
 ```
 
 
+weekly incidence line graph national average
 ```{r}
 library(dplyr)
 library(lubridate)
@@ -1807,6 +1825,7 @@ p <- ggplot(wk_nat, aes(x = week, y = inc_nat_100k, color = virus)) +
 print(p)
 ```
 
+Incidence+ Municipality combined
 ```{r}
 library(dplyr)
 library(lubridate)
@@ -1889,6 +1908,8 @@ print(p)
 
 ```
 
+
+The figure 1 line graph
 ```{r}
 
 library(dplyr)
@@ -2001,6 +2022,7 @@ print(p)
 
 ```
 
+stacked bar graph
 ```{r}
 library(dplyr)
 library(ggplot2)
@@ -2239,6 +2261,7 @@ library(ggplot2)
 library(stringr)
 library(scales)
 
+
 # =======================================
 # 2. Data setup
 # =======================================
@@ -2288,6 +2311,7 @@ nb <- poly2nb(muni_sf)
 adj_file <- tempfile(fileext = ".adj")
 nb2INLA(file = adj_file, nb = nb)
 g <- INLA::inla.read.graph(adj_file)
+lw <- nb2listw(nb, style = "W", zero.policy = TRUE)
 
 # =======================================
 # 3. Functions
@@ -2337,9 +2361,7 @@ make_panel_muni_month_pop <- function(dat, pop_df, space_levels, zika_nat_month)
 
   panel
 }
-
-
-fit_inla_space_time_full_interact_pop <- function(panel_df, graph) {
+fit_inla_space_time_full_interact_pop <- function(panel_df, graph, family = "poisson") {
 
   formula <- cases ~
      Z_t + 
@@ -2356,16 +2378,16 @@ fit_inla_space_time_full_interact_pop <- function(panel_df, graph) {
 
   inla(
     formula,
-    family = "poisson",
+    family = family, #family = poisson for the main model
     data = panel_df,
-    offset = panel_df$offset_pop,   # <-- log(POP)
+    offset = panel_df$offset_pop,
     control.predictor = list(compute = TRUE, link = 1),
     control.compute = list(dic = TRUE, waic = TRUE),
+    #control.inla = list(strategy = "simplified.laplace", int.strategy = "eb"),# this line is used to reduce the coding burden for the model used in sensitivity analysis.
     num.threads = "1:1",
     verbose = TRUE
   )
 }
-
 
 
 # ---- Extract TOTAL log(rate) where rate = mu / POP = exp(eta) ----
@@ -2413,13 +2435,27 @@ panel_chik_full <- make_panel_muni_month_pop(
   zika_nat_month
 )
 
-#fit_chik_interact_pop <- fit_inla_space_time_full_interact_pop(panel_chik_full,g)
+#fit_chik_zip <- fit_inla_space_time_full_interact_pop(panel_chik_full, g, family = "zeroinflatedpoisson1")
 
-
-#saveRDS(fit_chik_interact_pop, "~/Desktop/fit_chik_interact_pop.rds")
+#saveRDS(fit_chik_zip, "~/Desktop/fit_chik_zip.rds")
 
 # Load existing
 fit_chik_interact_pop <- readRDS("~/Desktop/fit_chik_interact_pop.rds")
+fit_chik_nb<- readRDS("~/Desktop/fit_chik_nb.rds")
+#fit_chik_zip<- readRDS("~/Desktop/fit_chik_zip.rds")
+# Comparing nb and poisson result
+cat("=== Poisson ===\n")
+print(fit_chik_interact_pop$summary.hyperpar)
+print(exp(fit_chik_interact_pop$summary.fixed["Z_t", c("mean","0.025quant","0.975quant")]))
+cat("DIC:", fit_chik_interact_pop$dic$dic, "\n")
+cat("WAIC:", fit_chik_interact_pop$waic$waic, "\n")
+
+cat("\n=== NB ===\n")
+print(fit_chik_nb$summary.hyperpar)
+print(exp(fit_chik_nb$summary.fixed["Z_t", c("mean","0.025quant","0.975quant")]))
+cat("DIC:", fit_chik_nb$dic$dic, "\n")
+cat("WAIC:", fit_chik_nb$waic$waic, "\n")
+
 
 # Extract log(rate)
 st_rate_chik <- extract_total_lograte(fit_chik_interact_pop, panel_chik_full, per = 1e5)
@@ -3013,7 +3049,7 @@ ggplot(df_heat_sex, aes(x = code_muni6, y = CS_SEXO, fill = cases)) +
   )
 
 # ======================================================
-# ⚖️ 4.（Female/Male Ratio Heatmap）
+# 4.（Female/Male Ratio Heatmap）
 # ======================================================
 
 df_sex_ratio <- combined_all %>%
@@ -3122,6 +3158,61 @@ sex_summary <- sex_by_muni %>%
 
 sex_summary
 
+#updated with state summary
+library(ggrepel)
+library(patchwork)
+library(tibble)
+
+# ── 1. state summary ──
+state_lookup <- tibble(
+  code_state = c("11","12","13","14","15","16","17",
+                 "21","22","23","24","25","26","27","28","29",
+                 "31","32","33","35",
+                 "41","42","43",
+                 "50","51","52","53"),
+  state_name = c("Rondônia","Acre","Amazonas","Roraima","Pará","Amapá","Tocantins",
+                 "Maranhão","Piauí","Ceará","Rio Grande do Norte","Paraíba",
+                 "Pernambuco","Alagoas","Sergipe","Bahia",
+                 "Minas Gerais","Espírito Santo","Rio de Janeiro","São Paulo",
+                 "Paraná","Santa Catarina","Rio Grande do Sul",
+                 "Mato Grosso do Sul","Mato Grosso","Goiás","Distrito Federal")
+)
+
+# ── 2. Cap y value ──
+sex_by_muni <- sex_by_muni %>%
+  mutate(y_plot = pmin(-log10(p_value), 350))
+
+# ── 3. Inset bar chart ──
+state_sig <- sex_by_muni %>%
+  filter(p_value < 0.05) %>%
+  mutate(code_state = substr(as.character(code_muni6), 1, 2)) %>%
+  count(code_state, sort = TRUE) %>%
+  left_join(state_lookup, by = "code_state")
+
+# ── 4. Inset bar chart ──
+p_inset <- ggplot(state_sig, aes(x = reorder(state_name, n), y = n)) +
+  geom_bar(stat = "identity", fill = "#d73027") +
+  coord_flip() +
+  labs(x = NULL, y = "Count") +
+  theme_minimal(base_size = 8) +
+  theme(panel.background = element_rect(fill = "white", color = "grey80"))
+
+# ── 5. combine together──
+p_main <- ggplot(sex_by_muni, aes(x = female_prop, y = y_plot)) +
+  geom_point(aes(size = M + F, color = p_value < 0.05), alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "gray60", "TRUE" = "red")) +
+  scale_size_continuous(name = "Total Cases", range = c(1, 8)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  labs(
+    title = "Municipality-level Sex Difference in Chikungunya Cases",
+    x = "Female Proportion",
+    y = expression(-log[10](p)),
+    color = "Significance"
+  ) +
+  ylim(0, 350) +
+  theme_minimal(base_size = 12)
+
+p_main + inset_element(p_inset, left = 0.02, bottom = 0.5, right = 0.35, top = 0.98)
 ```
 
 
@@ -3736,7 +3827,7 @@ race_year_summary <- combined_all %>%
 ggplot(race_year_summary,
        aes(x = year, y = n, fill = race_label)) +
   geom_bar(stat = "identity") +
-  scale_y_continuous(labels = label_comma()) +   # 👈 关键
+  scale_y_continuous(labels = label_comma()) +   # 👈 
   labs(
     title = "Ethnicity distribution of confirmed chikungunya cases (2015–2025)",
     x = "Year",
@@ -3864,10 +3955,11 @@ plot_km_interval <- function(df, interval, group_var,
       droplevels()
   }
   if (group_var == "race_label") {
-    d <- d %>%
-      filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
-      droplevels()
-  }
+  d <- d %>%
+    filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
+    droplevels() %>%
+    mutate(grp = relevel(factor(grp), ref = "Pardo (Mixed)"))
+}
 
 
   survfit2(Surv(t_obs, status) ~ grp, data = d) |>
@@ -3935,19 +4027,12 @@ for (int_name in names(interval_specs)) {
         filter(grp %in% c("M", "F")) %>%
         droplevels()
     }
-
-    if (group_vars[[gname]] == "race_label") {
-      d <- d %>%
-        filter(grp %in% c(
-          "Asian",
-          "Black",
-          "Indigenous",
-          "Pardo (Mixed)",
-          "White"
-        )) %>%
-        droplevels()
-    }
-
+if (group_vars[[gname]] == "race_label") {
+  d <- d %>%
+    filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
+    droplevels() %>%
+    mutate(grp = relevel(factor(grp), ref = "Pardo (Mixed)"))
+}
     # ---- 3) skip if not enough data
     if (nrow(d) < 10 || dplyr::n_distinct(d$grp) < 2) {
       cat("SKIP (insufficient data after filtering)\n")
@@ -4014,11 +4099,12 @@ for (int_name in names(interval_specs)) {
         filter(grp %in% c("M", "F")) %>%
         droplevels()
     }
-     if (group_vars[[gname]] == "race_label") {
-      d <- d %>%
-        filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
-        droplevels()
-    }
+   if (group_vars[[gname]] == "race_label") {
+  d <- d %>%
+    filter(grp %in% c("Asian", "Black","Indigenous","Pardo (Mixed)","White")) %>%
+    droplevels() %>%
+    mutate(grp = relevel(factor(grp), ref = "Pardo (Mixed)"))
+}
 
     if (nrow(d) < 10 || dplyr::n_distinct(d$grp) < 2) {
       cat("SKIP (insufficient data)\n")
@@ -4210,5 +4296,209 @@ ggplot(hosp_to_death_delay_map) +
   theme_minimal()
 
 
+
+```
+
+
+Moran I test
+```{r}
+
+library(spdep)
+
+time_lookup <- panel_chik_full %>%
+  distinct(time, ym) %>%
+  mutate(ym_date = as.Date(paste0(ym, "-01"))) %>%
+  arrange(time)
+
+moran_results <- lapply(1:nrow(time_lookup), function(i) {
+  
+  this_ym <- time_lookup$ym[i]
+  
+  vals <- data.frame(code_muni = space_levels) %>%
+    left_join(
+      st_interaction %>% filter(ym == this_ym) %>%
+        select(code_muni, interaction_mean),
+      by = "code_muni"
+    ) %>%
+    mutate(interaction_mean = ifelse(is.na(interaction_mean), 0, interaction_mean)) %>%
+    pull(interaction_mean)
+  
+  mt <- moran.test(vals, lw, zero.policy = TRUE)
+  
+  data.frame(
+    ym = this_ym,
+    ym_date = time_lookup$ym_date[i],
+    moran_I = mt$estimate["Moran I statistic"],
+    p_value = mt$p.value
+  )
+})
+
+moran_results <- bind_rows(moran_results)
+
+#plotting
+ggplot(moran_results, aes(x = ym_date, y = moran_I)) +
+  geom_line(linewidth = 1, color = "#2166ac") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_point(aes(color = p_value < 0.05), size = 1.5) +
+  scale_color_manual(
+    values = c("TRUE" = "#d73027", "FALSE" = "grey60"),
+    name = "p < 0.05"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Monthly Moran's I of space–time interaction term",
+    x = "Year",
+    y = "Moran's I"
+  ) +
+  theme_minimal(base_size = 12)
+
+
+summary(moran_results$moran_I)
+
+
+mean(moran_results$p_value < 0.05)
+
+
+moran_results %>%
+  filter(ym_date >= "2016-01-01", ym_date <= "2017-12-31") %>%
+  summarise(mean_moran = mean(moran_I))
+
+
+moran_results %>%
+  filter(ym_date >= "2024-01-01", ym_date <= "2025-12-31") %>%
+  summarise(mean_moran = mean(moran_I))
+
+
+# Monthly, macro region
+moran_region <- st_interaction %>%
+  mutate(code_state = substr(code_muni, 1, 2)) %>%
+  left_join(state_region_lookup, by = "code_state") %>%
+  filter(!is.na(region)) %>%
+  mutate(ym_date = as.Date(paste0(ym, "-01"))) %>%
+  group_by(region, ym_date) %>%
+  summarise(
+    mean_interaction = mean(interaction_mean, na.rm = TRUE),
+    frac_positive = mean(interaction_mean > 0, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# graph
+ggplot(moran_region, aes(x = ym_date, y = mean_interaction, color = region)) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Mean space–time interaction by macro-region",
+    subtitle = "Positive values indicate residual hotspot above BYM2 spatial structure",
+    x = "Year",
+    y = "Mean interaction effect",
+    color = "Region"
+  ) +
+  theme_minimal(base_size = 12)
+#moran I graph
+ggplot(moran_results, aes(x = ym_date, y = moran_I)) +
+  geom_line(linewidth = 1, color = "#2166ac") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_point(aes(color = p_value < 0.05), size = 1.5) +
+  scale_color_manual(
+    values = c("TRUE" = "#d73027", "FALSE" = "grey60"),
+    name = "p < 0.05"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  labs(
+    title = "Monthly Global Moran's I of space–time interaction term",
+    x = "Year",
+    y = "Moran's I"
+  ) +
+  theme_minimal(base_size = 12)
+
+
+
+# =========================================================
+# Local Moran's I (LISA) — averaged across all time points
+# =========================================================
+
+# municipality interaction_mean
+muni_avg_interaction <- st_interaction %>%
+  group_by(code_muni) %>%
+  summarise(mean_int = mean(interaction_mean, na.rm = TRUE), .groups = "drop")
+
+# combined to space_levels
+lisa_vals <- data.frame(code_muni = space_levels) %>%
+  left_join(muni_avg_interaction, by = "code_muni") %>%
+  mutate(mean_int = ifelse(is.na(mean_int), 0, mean_int)) %>%
+  pull(mean_int)
+
+# Local Moran's I
+local_m <- localmoran(lisa_vals, lw, zero.policy = TRUE)
+
+# add back to muni_sf
+muni_lisa <- muni_sf %>%
+  mutate(
+    local_I = local_m[, 1],
+    local_p = local_m[, 5],
+    mean_int = lisa_vals
+  )
+
+# define cluster status
+mean_val <- mean(lisa_vals)
+lag_val  <- lag.listw(lw, lisa_vals, zero.policy = TRUE)
+
+muni_lisa <- muni_lisa %>%
+  mutate(
+    quad = case_when(
+      mean_int > mean_val & lag_val > mean_val & local_p < 0.05 ~ "HH",
+      mean_int < mean_val & lag_val < mean_val & local_p < 0.05 ~ "LL",
+      mean_int > mean_val & lag_val < mean_val & local_p < 0.05 ~ "HL",
+      mean_int < mean_val & lag_val > mean_val & local_p < 0.05 ~ "LH",
+      TRUE ~ "Not sig."
+    ),
+    quad = factor(quad, levels = c("HH", "LL", "HL", "LH", "Not sig."))
+  )
+
+# LISA choropleth map
+p_lisa <- ggplot(muni_lisa) +
+  geom_sf(aes(fill = quad), color = NA) +
+  scale_fill_manual(values = c(
+    "HH"       = "#d7191c",
+    "LL"       = "#2c7bb6",
+    "HL"       = "#fdae61",
+    "LH"       = "#abd9e9",
+    "Not sig." = "grey85"
+  ), name = "LISA Cluster") +
+  labs(
+    title = "Local Moran's I (LISA) — Space-Time Interaction",
+    subtitle = "Time-averaged; HH = high-high cluster, LL = low-low cluster"
+  ) +
+  theme_void()
+
+print(p_lisa)
+
+# LISA strip by latitude
+muni_lisa_lat <- muni_lisa %>%
+  mutate(code_muni = as.character(code_muni)) %>%
+  left_join(data.frame(code_muni = muni_order_lat,
+                       lat_order = seq_along(muni_order_lat)),
+            by = "code_muni") %>%
+  mutate(code_muni_lat = factor(code_muni, levels = muni_order_lat))
+
+p_lisa_strip <- ggplot(muni_lisa_lat,
+                       aes(x = 1, y = code_muni_lat, fill = quad)) +
+  geom_tile() +
+  scale_fill_manual(values = c(
+    "HH" = "#d7191c", "LL" = "#2c7bb6",
+    "HL" = "#fdae61", "LH" = "#abd9e9",
+    "Not sig." = "grey85"
+  ), name = "LISA Cluster") +
+  labs(y = "Municipality", x = NULL) +
+  theme_minimal() +
+  theme(
+    axis.text.y  = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x  = element_blank(),
+    panel.grid   = element_blank()
+  )
+
+print(p_lisa_strip)
 
 ```
