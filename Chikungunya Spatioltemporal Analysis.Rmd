@@ -2263,8 +2263,6 @@ library(INLA)
 library(ggplot2)
 library(stringr)
 library(scales)
-
-
 # =======================================
 # 2. Data setup
 # =======================================
@@ -3212,9 +3210,6 @@ mun_data_recent %>%
   )
 
 ```
-
-
-
 
 
 
@@ -4820,4 +4815,195 @@ cat("Excluded (out of range):", out_of_range, "\n")
 cat("Excluded (not confirmed):", total_notifications - missing_date - out_of_range - final_n, "\n")
 cat("Final confirmed N:", final_n, "\n")
 
+```
+
+
+Follow up on supp9
+```{r}
+# ============================================================
+# Assemble muni_df: single municipality list = mun_data_recent (n = 3879)
+# ============================================================
+
+# (a) cases_2425: confirmed cases in 2024-25 (6-digit code)
+cases_2425_muni <- Chik_total %>%
+  mutate(
+    year      = as.integer(format(as.Date(DT_SIN_PRI), "%Y")),
+    code_muni = substr(as.character(ID_MUNICIP), 1, 6)
+  ) %>%
+  filter(CLASSI_FIN %in% c(1, 13), year %in% c(2024, 2025)) %>%
+  count(code_muni, name = "cases_2425")
+
+# (b) deaths_65plus: deaths aged >= 65, 2024-25 only
+deaths_65plus_muni <- Chik_total %>%
+  mutate(
+    year      = as.integer(format(as.Date(DT_SIN_PRI), "%Y")),
+    code_muni = substr(as.character(ID_MUNICIP), 1, 6),
+    age_years = decode_age_years(NU_IDADE_N)
+  ) %>%
+  filter(EVOLUCAO == 2, year %in% c(2024, 2025),
+         !is.na(age_years), age_years >= 65) %>%
+  count(code_muni, name = "deaths_65plus")
+
+# (c) Assemble; pop_65plus taken from age_struct (true counts)
+muni_df <- mun_data_recent %>%
+  transmute(
+    code_muni,
+    irr_2425  = irr,
+    prop_65   = prop_65plus,
+    pop_total = total_pop,
+    zone = case_when(
+      inc_bin == 3 & age_bin <  3 ~ "transmission-control",
+      inc_bin <  3 & age_bin == 3 ~ "clinical-preparedness",
+      inc_bin == 3 & age_bin == 3 ~ "combined",
+      TRUE                        ~ "neither"
+    )
+  ) %>%
+  left_join(age_struct %>% select(code_muni, pop_65plus), by = "code_muni") %>%
+  left_join(cases_2425_muni,    by = "code_muni") %>%
+  left_join(deaths_65plus_muni, by = "code_muni") %>%
+  mutate(
+    cases_2425    = replace_na(cases_2425, 0),
+    deaths_65plus = replace_na(deaths_65plus, 0)
+  )
+
+# Checks
+nrow(muni_df)                  # expect 3879
+sum(is.na(muni_df$pop_65plus)) # expect 0
+colSums(is.na(muni_df))        # check for any remaining NA
+
+
+# ============================================================
+# Share of 2024-25 cases in municipalities age-only would NOT prioritise
+# Age-only prioritises the upper tertile (high prop_65);
+# it omits the lower 2/3 -> report the case share in those omitted municipalities.
+# ============================================================
+total_2425 <- sum(muni_df$cases_2425)
+
+cases_left <- muni_df %>%
+  filter(prop_65 < quantile(prop_65, 2/3)) %>%   # municipalities age-only omits
+  summarise(pct_cases_left = 100 * sum(cases_2425) / total_2425)
+
+cat("\n=== Cases left unprioritised by age-only ===\n")
+cat(sprintf("Cases in municipalities age-only would not prioritise: %.1f%%\n",
+            cases_left$pct_cases_left))
+
+
+# ============================================================
+# Severity capture at equal coverage (Ana's original code)
+# Severity weight: 65+ population, then observed 65+ deaths (2024-25)
+# age_only_selected = upper tertile of prop_65 (the naive age-only rule)
+# Framework = preparedness + combined zones
+# ============================================================
+muni_df <- muni_df %>%
+  mutate(age_only_selected = prop_65 >= quantile(prop_65, 2/3))
+
+# ---- Weight A: 65+ population ----
+muni_df <- muni_df %>% mutate(hi_sev_py = pop_65plus)
+total <- sum(muni_df$hi_sev_py)
+
+zone_capture_pop <- muni_df %>%
+  filter(zone %in% c("clinical-preparedness", "combined")) %>%
+  summarise(pct = 100 * sum(hi_sev_py) / total)
+
+age_only_capture_pop <- muni_df %>%
+  filter(age_only_selected) %>%
+  summarise(pct = 100 * sum(hi_sev_py) / total)
+
+# ---- Weight B: observed 65+ deaths (2024-25) ----
+muni_df <- muni_df %>% mutate(hi_sev_py = deaths_65plus)
+total <- sum(muni_df$hi_sev_py)
+
+zone_capture_death <- muni_df %>%
+  filter(zone %in% c("clinical-preparedness", "combined")) %>%
+  summarise(pct = 100 * sum(hi_sev_py) / total)
+
+age_only_capture_death <- muni_df %>%
+  filter(age_only_selected) %>%
+  summarise(pct = 100 * sum(hi_sev_py) / total)
+
+cat("\n=== Severity capture at equal coverage ===\n")
+cat(sprintf("n age-only selected (upper tertile): %d\n", sum(muni_df$age_only_selected)))
+cat("\n-- Weight A: 65+ population --\n")
+cat(sprintf("framework (prep+combined): %.1f%%\n", zone_capture_pop$pct))
+cat(sprintf("age-only (upper tertile):  %.1f%%\n", age_only_capture_pop$pct))
+cat("\n-- Weight B: observed 65+ deaths (2024-25) --\n")
+cat(sprintf("framework (prep+combined): %.1f%%\n", zone_capture_death$pct))
+cat(sprintf("age-only (upper tertile):  %.1f%%\n", age_only_capture_death$pct))
+
+# tidy up temporary columns
+muni_df <- muni_df %>% select(-hi_sev_py, -age_only_selected)
+
+
+# ============================================================
+# Cumulative-capture curves (used for headline numbers and the figure)
+#   transmission ranking = irr_2425
+#   age-only ranking      = prop_65
+# ============================================================
+make_curve <- function(df, order_var, label) {
+  df %>%
+    arrange(desc(.data[[order_var]])) %>%
+    transmute(
+      strategy  = label,
+      n_muni    = row_number(),
+      cov_frac  = n_muni / n(),
+      cum_cases = cumsum(cases_2425) / sum(cases_2425),
+      cum_sev   = cumsum(pop_65plus) / sum(pop_65plus)   # true >= 65 population
+    )
+}
+
+curves <- bind_rows(
+  make_curve(muni_df, "irr_2425", "Prioritise by transmission (2024-25 IRR)"),
+  make_curve(muni_df, "prop_65",  "Age-only (% aged 65+)")
+)
+
+
+# ============================================================
+# Headline numbers at matched coverage (upper tertile, k)
+# ============================================================
+k <- round(nrow(muni_df) / 3)
+headline <- curves %>% filter(n_muni == k)
+
+age_cases  <- headline$cum_cases[grepl("Age-only",     headline$strategy)]
+rule_cases <- headline$cum_cases[grepl("transmission", headline$strategy)]
+
+cat("\n=== Capture at matched coverage (k =", k, ") ===\n")
+cat(sprintf("Transmission ranking captures: %.0f%% of 2024-25 cases\n", 100 * rule_cases))
+cat(sprintf("Age-only ranking captures:     %.0f%% of 2024-25 cases\n", 100 * age_cases))
+cat(sprintf("Age-only leaves unprioritised: %.0f%% of 2024-25 cases\n", 100 * (1 - age_cases)))
+
+# ============================================================
+# Figure: cumulative-capture benchmark (Panels A and B)
+# ============================================================
+plot_df <- curves %>%
+  pivot_longer(c(cum_cases, cum_sev), names_to = "axis", values_to = "captured") %>%
+  mutate(axis = recode(axis,
+    cum_cases = "A  2024-25 cases captured",
+    cum_sev   = "B  Population aged 65+ captured"))
+
+fig <- ggplot(plot_df, aes(cov_frac, captured, colour = strategy)) +
+  geom_abline(slope = 1, intercept = 0, linetype = 3, colour = "grey70") +
+  geom_vline(xintercept = 1/3, linetype = 2, colour = "grey60") +
+  geom_line(linewidth = 1) +
+  facet_wrap(~axis) +
+  scale_x_continuous(labels = percent, limits = c(0, 1),
+                     breaks = c(0, 0.25, 0.5, 0.75, 1), expand = c(0, 0)) +
+  scale_y_continuous(labels = percent, limits = c(0, 1), expand = c(0, 0)) +
+  scale_colour_manual(values = c(
+    "Prioritise by transmission (2024-25 IRR)" = "#2c7fb8",
+    "Age-only (% aged 65+)"                    = "#d95f0e")) +
+  labs(
+    x = "Municipalities prioritised (cumulative %, ranked by each strategy)",
+    y = "Cumulative share captured",
+    colour = NULL,
+    caption = "Dashed vertical line = matched coverage (upper tertile, n = 1293). Dotted diagonal = line of equality."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    panel.spacing    = unit(1.2, "lines"),
+    strip.text       = element_text(hjust = 0, face = "bold")
+  )
+
+print(fig)
 ```
