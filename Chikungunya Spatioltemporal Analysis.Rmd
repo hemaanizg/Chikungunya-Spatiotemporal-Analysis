@@ -1406,39 +1406,25 @@ combined_all <- combined_all %>%
     TRUE ~ "Unspecified"
   ))
 
-
-# Add a newborn-sensitive age grouping for survival
+# 10-year age grouping for Figure 4 (William's suggestion)
 combined_all <- combined_all %>%
-  mutate(age_group_surv = case_when(
-    !is.na(age_years) & age_years < 1    ~ "<1",
-    age_years >= 1  & age_years < 5      ~ "1–4",
-    age_years >= 5  & age_years < 10     ~ "5–9",
-    age_years >= 10 & age_years < 15     ~ "10–14",
-    age_years >= 15 & age_years < 20     ~ "15–19",
-    age_years >= 20 & age_years < 25     ~ "20–24",
-    age_years >= 25 & age_years < 30     ~ "25–29",
-    age_years >= 30 & age_years < 35     ~ "30–34",
-    age_years >= 35 & age_years < 40     ~ "35–39",
-    age_years >= 40 & age_years < 45     ~ "40–44",
-    age_years >= 45 & age_years < 50     ~ "45–49",
-    age_years >= 50 & age_years < 55     ~ "50–54",
-    age_years >= 55 & age_years < 60     ~ "55–59",
-    age_years >= 60 & age_years < 65     ~ "60–64",
-    age_years >= 65 & age_years < 70     ~ "65–69",
-    age_years >= 70 & age_years < 75     ~ "70–74",
-    age_years >= 75 & age_years < 80     ~ "75–79",
-    age_years >= 80 & age_years < 85     ~ "80–84",
-    age_years >= 85 & age_years < 90     ~ "85–89",
-    age_years >= 90 & age_years < 95     ~ "90–94",
-    age_years >= 95 & age_years <= 120   ~ "95+",
+  mutate(age_group_surv10 = case_when(
+    !is.na(age_years) & age_years < 1   ~ "<1",
+    age_years >= 1  & age_years < 10    ~ "1–9",
+    age_years >= 10 & age_years < 20    ~ "10–19",
+    age_years >= 20 & age_years < 30    ~ "20–29",
+    age_years >= 30 & age_years < 40    ~ "30–39",
+    age_years >= 40 & age_years < 50    ~ "40–49",
+    age_years >= 50 & age_years < 60    ~ "50–59",
+    age_years >= 60 & age_years < 70    ~ "60–69",
+    age_years >= 70 & age_years < 80    ~ "70–79",
+    age_years >= 80 & age_years <= 120  ~ "≥80",
     TRUE ~ NA_character_
   ),
-  age_group_surv = factor(age_group_surv,
-    levels = c("<1","1–4","5–9","10–14","15–19","20–24","25–29","30–34",
-               "35–39","40–44","45–49","50–54","55–59","60–64","65–69",
-               "70–74","75–79","80–84","85–89","90–94","95+"),
-    ordered = TRUE)
-  )
+  age_group_surv10 = factor(age_group_surv10,
+    levels = c("<1","1–9","10–19","20–29","30–39",
+               "40–49","50–59","60–69","70–79","≥80"),
+    ordered = TRUE))
 
 
 build_surv_dataset <- function(df, virus_label, group_var,
@@ -4296,13 +4282,13 @@ plot_km_interval <- function(df, interval, group_var,
 # 3) Generate the 9 plots
 # =========================================================
 interval_specs <- list(
-  onset_to_hosp  = list(xlim = c(0, 60)),
-  hosp_to_death  = list(xlim = c(0, 60)),
+  onset_to_hosp  = list(xlim = c(0, 180)),
+  hosp_to_death  = list(xlim = c(0, 180)),
   onset_to_death = list(xlim = c(0, 180))
 )
 
 group_vars <- c(
-  age  = "age_group_surv",
+  age  = "age_group_surv10",
   sex  = "CS_SEXO",
   race = "race_label"
 )
