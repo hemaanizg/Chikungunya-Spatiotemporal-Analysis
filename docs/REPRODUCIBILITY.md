@@ -2,6 +2,8 @@
 
 **Documentation status: October 2026.** This guide describes the code now committed to the repository. It is **not a claim that a clean clone runs end-to-end without additional inputs**. The main model and several downstream analyses rely on fitted objects produced on Cornell Seneca HPC or saved in a local R session.
 
+The numbered source files are now together in [`analysis/`](../analysis/). They have **not been split into independent subfolders** because many use `source("00_setup.R")` and exchange objects or relative-path outputs. Work in `analysis/` for interactive runs or R Markdown rendering. Moving the files has not changed the statistical models.
+
 The primary modeling window is **January 2016 through December 2025** (120 months across 5,570 municipalities). The separate 2026 assessment uses held-out, provisional surveillance records.
 
 ## 1. Obtain the code
@@ -9,9 +11,10 @@ The primary modeling window is **January 2016 through December 2025** (120 month
 ```bash
 git clone https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis.git
 cd Chikungunya-Spatiotemporal-Analysis
+cd analysis   # Required for source("00_setup.R") and relative saved-object paths
 ```
 
-These R/Rmd modules currently live in the repository root. The older `Chikungunya Spatioltemporal Analysis.Rmd` is retained for historical reference and **does not replace** the revised modules.
+These R/Rmd modules live in `analysis/`. The older notebook has been moved to [`archive/`](../archive/) for historical reference and **does not replace** the revised modules.
 
 ## 2. Set up the R environment
 
@@ -33,7 +36,7 @@ Install other dependencies as needed, then run `source("00_setup.R")` to identif
 
 ## 3. Raw input files and paths
 
-**The current scripts have local absolute paths that must be adapted on another machine.** In `00_setup.R`, set:
+**The current scripts have local absolute paths that must be adapted on another machine. After moving the modules, put newly generated `pop_panel_total.rds` and `pop_panel_age.rds` in the `analysis/` working directory, or adjust relevant relative paths. Existing local RDS files outside that directory are **not** automatically moved.** In `00_setup.R`, set:
 
 ```r
 RAW_DBC_DIR        <- "/your/local/raw-inputs"
@@ -42,7 +45,7 @@ IBGE_DOWNLOADS_DIR <- "/your/local/ibge-inputs"
 
 The file `01_data_import_cleaning.Rmd` expects `CHIKBR16.dbc` through `CHIKBR25.dbc` inside `file.path(RAW_DBC_DIR, "CHIKdata")`. It also currently loads `CHIKBR26.dbc` in its import chunk to create a **separate** `Chik_2026` object; the 2026 data are *not* appended to `Chik_total`. **The public repository does not currently include `CHIKBR26.dbc`, so running File 01 unchanged will fail unless that file is supplied.**
 
-For reference, historical `CHIKBR15.dbc` through `CHIKBR25.dbc` are already checked into `data/chikungunya/`. The revised File 01 **does not automatically use this location**: either provide the input layout it expects or adapt the paths. Sources: [DATASUS](https://datasus.saude.gov.br/transferencia-de-arquivos/).
+For reference, historical `CHIKBR15.dbc` through `CHIKBR25.dbc` are already checked into `data/chikungunya/`. The revised File 01 **does not automatically use this location**: either provide the input layout it expects or adapt the paths. The repository layout is unchanged for raw `data/`; it is **not** the same as the default `RAW_DBC_DIR/CHIKdata` specified in the script. Sources: [DATASUS](https://datasus.saude.gov.br/transferencia-de-arquivos/).
 
 `02_population_panel.R` expects ten cleaned IBGE municipality-by-age files named `ibge_pop_age_2016_clean.csv` through `ibge_pop_age_2025_clean.csv` in `IBGE_DOWNLOADS_DIR`. These cleaned inputs are **not included** in this repository. File 02 verifies all 5,570 municipalities for every year and saves `pop_panel_total.rds` and `pop_panel_age.rds` in the current working directory. Source: [IBGE population data](https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html).
 
@@ -120,4 +123,4 @@ See the exact checks at the beginning of Files 06, 13–20 for the authoritative
 - [ ] Perform an independent clean-clone test and reconcile manuscript figures/tables with specific output files.
 - [ ] Create a stable release and archive it with a DOI once the code, provenance and analyses are finalized.
 
-For the scientific overview, see the [README](../README.md).
+For a file-by-file inventory with upload priorities, see [DATA_INVENTORY.md](DATA_INVENTORY.md). For the scientific overview, see the [README](../README.md).
