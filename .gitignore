@@ -1,0 +1,31 @@
+# R and RStudio local state
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.Renviron
+
+# Generated R Markdown outputs
+*_cache/
+*_files/
+*.utf8.md
+*.knit.md
+*.html
+
+# Local model results and large derived artifacts
+results/
+inla_results/
+*.rds
+*.RDS
+*.RData
+*.adj
+
+# Generated graphics and local logs
+*.log
+
+# Platform-specific metadata
+.DS_Store
+Thumbs.db
+
+# Keep source .R/.Rmd, existing versioned .dbc inputs, and documentation trackable.
+# Ignore rules do not remove already-tracked files.
