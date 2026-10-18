@@ -4,7 +4,7 @@
 
 ![R](https://img.shields.io/badge/analysis-R-276DC3?logo=r&logoColor=white) ![INLA](https://img.shields.io/badge/Bayesian%20inference-INLA-475569) ![Status](https://img.shields.io/badge/status-manuscript%20revision-informational) ![Data](https://img.shields.io/badge/data-SINAN%20%2B%20IBGE-64748b)
 
-> **Repository status (October 2026):** This public repository currently contains the **original exploratory analysis** and historical input files. The substantially revised **2016–2025 modular analysis pipeline is being prepared for release and is not yet committed here**. The updated scientific overview below describes the revision workflow, **not** code that is already available in this checkout. See [Code availability and reproducibility](#code-availability-and-reproducibility).
+> **Repository status (October 2026):** All 22 revised R/R Markdown modules (00–21) have now been uploaded to `main`. The repository also retains the legacy notebook and historical data. **The code release is not yet end-to-end reproducible from a clean clone**: local paths, IBGE age-population files, saved HPC models and prediction outputs still need to be provided. Read the [reproducibility guide](docs/REPRODUCIBILITY.md) before attempting to run it.
 
 ## Project overview
 
@@ -73,33 +73,32 @@ Raw historical chikungunya `.dbc` inputs are present under [`data/chikungunya/`]
 
 ## Code availability and reproducibility
 
-### What is publicly available now
+### Public repository: revised code now available
 
-```text
-Chikungunya-Spatiotemporal-Analysis/
-├── README.md
-├── Chikungunya Spatioltemporal Analysis.Rmd   # Original exploratory notebook
-└── data/
-    ├── chikungunya/                          # Historical CHIK .dbc inputs
-    └── zika/                                 # Archived Zika input
-```
+All **22 revised numbered source modules** are now committed to this repository. They are visible directly from the root alongside the [original exploratory notebook](Chikungunya%20Spatioltemporal%20Analysis.Rmd). That older notebook is retained only for historical context.
 
-Start with the [historical R Markdown analysis](Chikungunya%20Spatioltemporal%20Analysis.Rmd) if you want to inspect the original workflow. **It is not the final analysis behind the revised methods described above**. This historical notebook contains machine-specific absolute file paths and earlier model and case-definition choices; it should not be treated as a clean-clone, end-to-end reproduction of the current manuscript.
-
-### Revised modular workflow (release in preparation)
-
-The revised analysis has been reorganized into numbered R/R Markdown modules. **The following modules are not yet in the public repository**:
-
-| Stage | Modules | Main purpose |
+| Stage | Files | Description |
 |---|---|---|
-| Data foundation | `00_setup.R`–`02_population_panel.R` | SINAN cleaning, analytic case definition, and annual IBGE population/age denominators |
-| Epidemiologic description | `03_descriptive_epi.Rmd`–`05_wavelet_analysis.Rmd` | Burden summaries, geographic-demographic patterns, and epidemic timing |
-| Spatiotemporal model | `06_inla_spacetime_model_2016_2025.Rmd` | Full municipal INLA panel, primary fit, diagnostics, sensitivity analyses |
-| Clinical and priority analyses | `07_priority_metric_2016_2025.Rmd`–`13_expected_burden_metric_2016_2025.Rmd` | Clinical progression, eligibility, shared spatial components, severity surfaces, and prioritization scores |
-| Forecast evaluation | `14_rolling_origin_forecast_2016_2025.Rmd`–`17_secondary_forecast_2016_2022_to_2024_2025.Rmd` | Rolling-origin fitting/scoring, case-definition audit, and longer-horizon evaluation |
-| External checks and scenarios | `18_external_validation_2026.Rmd`–`21_race_ethnicity_denominators_IBGE2022.Rmd` | Partial-year 2026 assessment, reporting-completeness sensitivity, dose scenarios, and race-specific denominators |
+| Configuration and population | [00_setup.R](00_setup.R), [01_data_import_cleaning.Rmd](01_data_import_cleaning.Rmd), [02_population_panel.R](02_population_panel.R) | Package setup, confirmed-case filter, year-varying population and age panels |
+| Epidemiological analyses | [03](03_descriptive_epi.Rmd), [04](04_geographic_demographic.Rmd), [05](05_wavelet_analysis.Rmd) | Descriptive, geographic and peak-timing analyses |
+| Spatial model | [06_inla_spacetime_model_2016_2025.Rmd](06_inla_spacetime_model_2016_2025.Rmd) | Primary negative-binomial spatiotemporal model and checks |
+| Clinical outcomes and eligibility | [07](07_priority_metric_2016_2025.Rmd), [08](08_survival_cox_2016_2025.Rmd), [09](09_symptom_analysis_2016_2025.Rmd), [10](10_step1_eligibility_split_2016_2025.Rmd) | Earlier priority maps, survival, symptoms and age-eligibility split |
+| Severity and allocation | [11](11_shared_component_model.Rmd), [12](12_severity_surface_2016_2025.Rmd), [13](13_expected_burden_metric_2016_2025.Rmd) | Shared spatial component, severe outcomes, continuous and product-specific rankings |
+| Forecast and audit | [14](14_rolling_origin_forecast_2016_2025.Rmd), [15](15_rolling_origin_scoring_2017_2025.Rmd), [16](16_step3_case_definition.Rmd), [17](17_secondary_forecast_2016_2022_to_2024_2025.Rmd) | Rolling origin fitting/scoring, case-definition checks, longer-horizon assessment |
+| External checks and scenario analyses | [18](18_external_validation_2026.Rmd), [19](19_reporting_completeness_sensitivity_2025.Rmd), [20](20_burden_averted_per_1000_doses.Rmd), [21](21_race_ethnicity_denominators_IBGE2022.Rmd) | Provisional 2026 validation, reporting sensitivity, hypothetical dose scenarios and census denominators |
 
-Most revised modules depend on saved intermediate objects (`.rds`/`.csv`) and several currently reference local input/output directories or HPC-produced model fits. **Those artifacts, an environment lockfile, and independent clean-clone verification have not yet been published here.** Instructions for fully reproducing the revised workflow will be added when the code and required provenance information are deposited.
+### Reproducing the revised work
+
+**[Read the detailed reproducibility guide](docs/REPRODUCIBILITY.md)** for module dependencies, input paths, execution order, saved model products and limitations.
+
+Important current requirements:
+
+- The source files have been published; **required generated RDS/CSV outputs and HPC fits have not all been published**.
+- File 01 currently also reads a separate **2026 DBC file** that is not in the deposited historical 2015–2025 raw input collection. The 2026 data are held out of the primary study period.
+- File 02 requires ten cleaned IBGE municipality-by-age CSVs not in this GitHub repository.
+- Some notebooks assume objects created in the same interactive R session; others load objects from `~/Downloads/inla_results/`.
+- File 06 currently loads a previously computed primary model; its expensive fitting call is commented out. File 17 likewise scores saved HPC forecasts.
+- A versioned environment lockfile and independent clean-clone execution test are not yet included. Avoid describing this checkout as a one-command complete reproduction.
 
 ### Software
 
