@@ -2,7 +2,7 @@
 
 **Documentation status: October 2026.** This guide describes the code now committed to the repository. It is **not a claim that a clean clone runs end-to-end without additional inputs**. The main model and several downstream analyses rely on fitted objects produced on Cornell Seneca HPC or saved in a local R session.
 
-The numbered source files are now together in [`analysis/`](../analysis/). They have **not been split into independent subfolders** because many use `source("00_setup.R")` and exchange objects or relative-path outputs. Work in `analysis/` for interactive runs or R Markdown rendering. Moving the files has not changed the statistical models.
+The common configuration `00_setup.R` is at the top of [`analysis/`](../analysis/), and 01–21 have been placed in five thematic subfolders. **The scripts' analytical content is unchanged.** Keep `analysis/` as your working directory and use `knit_root_dir` when rendering nested R Markdown files; see the [folder index](../analysis/README.md).
 
 The primary modeling window is **January 2016 through December 2025** (120 months across 5,570 municipalities). The separate 2026 assessment uses held-out, provisional surveillance records.
 
@@ -14,7 +14,19 @@ cd Chikungunya-Spatiotemporal-Analysis
 cd analysis   # Required for source("00_setup.R") and relative saved-object paths
 ```
 
-These R/Rmd modules live in `analysis/`. The older notebook has been moved to [`archive/`](../archive/) for historical reference and **does not replace** the revised modules.
+These R/Rmd modules live in thematic subfolders of `analysis/`. The older notebook has been moved to [`archive/`](../archive/) for historical reference and **does not replace** the revised modules.
+
+### Running an R Markdown notebook in a subfolder
+
+```r
+# From the analysis/ working directory
+rmarkdown::render(
+  "03_spatiotemporal_models/06_inla_spacetime_model_2016_2025.Rmd",
+  knit_root_dir = normalizePath(".")
+)
+```
+
+Without the explicit root, RStudio's direct Knit action may switch the working directory to the subfolder and make `source("00_setup.R")` fail. `02_population_panel.R` can be run via `source("01_data_and_population/02_population_panel.R")` from the common working directory.
 
 ## 2. Set up the R environment
 
