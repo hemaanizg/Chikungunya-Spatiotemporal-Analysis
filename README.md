@@ -79,24 +79,27 @@ All **22 revised numbered source modules** are committed under [`analysis/`](ana
 
 | Stage | Files | Description |
 |---|---|---|
-| Configuration and population | [00_setup.R](analysis/00_setup.R), [01_data_import_cleaning.Rmd](analysis/01_data_import_cleaning.Rmd), [02_population_panel.R](analysis/02_population_panel.R) | Package setup, confirmed-case filter, year-varying population and age panels |
-| Epidemiological analyses | [03](analysis/03_descriptive_epi.Rmd), [04](analysis/04_geographic_demographic.Rmd), [05](analysis/05_wavelet_analysis.Rmd) | Descriptive, geographic and peak-timing analyses |
-| Spatial model | [06_inla_spacetime_model_2016_2025.Rmd](analysis/06_inla_spacetime_model_2016_2025.Rmd) | Primary negative-binomial spatiotemporal model and checks |
-| Clinical outcomes and eligibility | [07](analysis/07_priority_metric_2016_2025.Rmd), [08](analysis/08_survival_cox_2016_2025.Rmd), [09](analysis/09_symptom_analysis_2016_2025.Rmd), [10](analysis/10_step1_eligibility_split_2016_2025.Rmd) | Earlier priority maps, survival, symptoms and age-eligibility split |
-| Severity and allocation | [11](analysis/11_shared_component_model.Rmd), [12](analysis/12_severity_surface_2016_2025.Rmd), [13](analysis/13_expected_burden_metric_2016_2025.Rmd) | Shared spatial component, severe outcomes, continuous and product-specific rankings |
-| Forecast and audit | [14](analysis/14_rolling_origin_forecast_2016_2025.Rmd), [15](analysis/15_rolling_origin_scoring_2017_2025.Rmd), [16](analysis/16_step3_case_definition.Rmd), [17](analysis/17_secondary_forecast_2016_2022_to_2024_2025.Rmd) | Rolling origin fitting/scoring, case-definition checks, longer-horizon assessment |
-| External checks and scenario analyses | [18](analysis/18_external_validation_2026.Rmd), [19](analysis/19_reporting_completeness_sensitivity_2025.Rmd), [20](analysis/20_burden_averted_per_1000_doses.Rmd), [21](analysis/21_race_ethnicity_denominators_IBGE2022.Rmd) | Provisional 2026 validation, reporting sensitivity, hypothetical dose scenarios and census denominators |
+| Configuration and population | [00_setup.R](analysis/00_setup.R), [01_data_import_cleaning.Rmd](analysis/01_data_and_population/01_data_import_cleaning.Rmd), [02_population_panel.R](analysis/01_data_and_population/02_population_panel.R) | Package setup, confirmed-case filter, year-varying population and age panels |
+| Epidemiological analyses | [03](analysis/02_descriptive_epidemiology/03_descriptive_epi.Rmd), [04](analysis/02_descriptive_epidemiology/04_geographic_demographic.Rmd), [05](analysis/02_descriptive_epidemiology/05_wavelet_analysis.Rmd) | Descriptive, geographic and peak-timing analyses |
+| Spatial model | [06_inla_spacetime_model_2016_2025.Rmd](analysis/03_spatiotemporal_models/06_inla_spacetime_model_2016_2025.Rmd) | Primary negative-binomial spatiotemporal model and checks |
+| Clinical outcomes and eligibility | [07](analysis/04_clinical_and_prioritization/07_priority_metric_2016_2025.Rmd), [08](analysis/04_clinical_and_prioritization/08_survival_cox_2016_2025.Rmd), [09](analysis/02_descriptive_epidemiology/09_symptom_analysis_2016_2025.Rmd), [10](analysis/04_clinical_and_prioritization/10_step1_eligibility_split_2016_2025.Rmd) | Earlier priority maps, survival, symptoms and age-eligibility split |
+| Severity and allocation | [11](analysis/03_spatiotemporal_models/11_shared_component_model.Rmd), [12](analysis/03_spatiotemporal_models/12_severity_surface_2016_2025.Rmd), [13](analysis/04_clinical_and_prioritization/13_expected_burden_metric_2016_2025.Rmd) | Shared spatial component, severe outcomes, continuous and product-specific rankings |
+| Forecast and audit | [14](analysis/05_forecasting_and_validation/14_rolling_origin_forecast_2016_2025.Rmd), [15](analysis/05_forecasting_and_validation/15_rolling_origin_scoring_2017_2025.Rmd), [16](analysis/01_data_and_population/16_step3_case_definition.Rmd), [17](analysis/05_forecasting_and_validation/17_secondary_forecast_2016_2022_to_2024_2025.Rmd) | Rolling origin fitting/scoring, case-definition checks, longer-horizon assessment |
+| External checks and scenario analyses | [18](analysis/05_forecasting_and_validation/18_external_validation_2026.Rmd), [19](analysis/05_forecasting_and_validation/19_reporting_completeness_sensitivity_2025.Rmd), [20](analysis/04_clinical_and_prioritization/20_burden_averted_per_1000_doses.Rmd), [21](analysis/01_data_and_population/21_race_ethnicity_denominators_IBGE2022.Rmd) | Provisional 2026 validation, reporting sensitivity, hypothetical dose scenarios and census denominators |
 
 ### Folder layout
 
 ```text
-├── analysis/        # Current 00–21 R and R Markdown modules (shared working directory)
-├── archive/         # Legacy exploratory single-file notebook
-├── data/            # Historical raw CHIK and Zika archives; see data/README.md
-├── docs/            # Reproducibility and missing-file inventory
-├── .gitignore
-└── README.md
+analysis/
+├── 00_setup.R
+├── 01_data_and_population/            # 01, 02, 16, 21
+├── 02_descriptive_epidemiology/        # 03, 04, 05, 09
+├── 03_spatiotemporal_models/          # 06, 11, 12
+├── 04_clinical_and_prioritization/    # 07, 08, 10, 13, 20
+└── 05_forecasting_and_validation/     # 14, 15, 17, 18, 19
 ```
+
+All modules retain their original names and byte-identical code. Because most scripts still call `source("00_setup.R")`, **run them from `analysis/` as the working directory**, and explicitly pass `knit_root_dir` for nested Rmd files. See [analysis instructions](analysis/README.md).
 
 ### Reproducing the revised work
 
