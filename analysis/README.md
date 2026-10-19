@@ -1,18 +1,33 @@
-# Revised analysis modules (2016–2025)
+# Analysis modules (2016–2025)
 
-This folder holds the **22 numbered R and R Markdown source files**, 00–21, for the revised chikungunya analysis. The statistical code has been **moved without editing model specifications, formulas, filters or calculations**.
+**00_setup.R** is the shared configuration file. Files 01–21 are grouped by topic without modification to their analytical code.
 
-### Working directory matters
+| Folder | Scripts | Focus |
+|---|---|---|
+| [01_data_and_population](01_data_and_population/) | 01, 02, 16, 21 | Case imports, denominators and definition audits |
+| [02_descriptive_epidemiology](02_descriptive_epidemiology/) | 03, 04, 05, 09 | Descriptive epidemiology, geographic demography, wavelets and symptoms |
+| [03_spatiotemporal_models](03_spatiotemporal_models/) | 06, 11, 12 | Bayesian INLA, shared-component and severity models |
+| [04_clinical_and_prioritization](04_clinical_and_prioritization/) | 07, 08, 10, 13, 20 | Cox models, allocation metrics, eligibility and averted-burden scenarios |
+| [05_forecasting_and_validation](05_forecasting_and_validation/) | 14, 15, 17, 18, 19 | Rolling-origin forecasting, 2026 validation and reporting completeness |
 
-Most modules use `source("00_setup.R")`; some read or write files via relative paths such as `pop_panel_total.rds`. **Set the R working directory to this folder** before interactive execution, or open and knit an Rmd in place:
+## How to execute
+
+Keep **`analysis/`** as the R working directory so that `source("00_setup.R")` and relative paths remain resolvable:
 
 ```r
 setwd("/path/to/Chikungunya-Spatiotemporal-Analysis/analysis")
 source("00_setup.R")
+
+# Render a nested notebook while keeping analysis/ as the chunk root:
+rmarkdown::render(
+  "03_spatiotemporal_models/06_inla_spacetime_model_2016_2025.Rmd",
+  knit_root_dir = normalizePath(".")
+)
+
+# Or source the population script:
+source("01_data_and_population/02_population_panel.R")
 ```
 
-Configure `RAW_DBC_DIR` and `IBGE_DOWNLOADS_DIR` in `00_setup.R` for your machine. Raw historic CHIK files are in `../data/chikungunya/`, **not** automatically under the `RAW_DBC_DIR/CHIKdata` location used by File 01. Running notebooks individually in isolated R sessions will not preserve required in-memory objects.
+**Important:** Clicking Knit directly in RStudio may use the nested folder as the working directory and fail to locate `00_setup.R`. Setting the working directory once is not sufficient for a plain Knit; use the explicit `knit_root_dir` argument shown above.
 
-Some notebooks need saved INLA objects at `~/Downloads/inla_results/`, and File 20 currently expects `~/pop_panel_age.rds`. A directory move **does not change** these external paths; if your existing RDS inputs live elsewhere, copy them to the expected location or deliberately reconfigure the code.
-
-Read [full reproduction requirements](../docs/REPRODUCIBILITY.md) and [the missing-file checklist](../docs/DATA_INVENTORY.md). The original single-file exploratory notebook is under [archive](../archive/).
+These scripts are not automatically independent: some require upstream in-memory objects and saved HPC RDS files. Input and model-output requirements remain unchanged. See [reproducibility](../docs/REPRODUCIBILITY.md) and [file inventory](../docs/DATA_INVENTORY.md).
