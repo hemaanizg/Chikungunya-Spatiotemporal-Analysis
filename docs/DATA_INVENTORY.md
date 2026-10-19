@@ -4,7 +4,7 @@ This document compares the **files committed to this repository** with explicit 
 
 ## Currently versioned
 
-- `analysis/00_setup.R` to `analysis/21_race_ethnicity_denominators_IBGE2022.Rmd`: all 22 revised R/Rmd source modules.
+- `analysis/00_setup.R` plus 01–21 distributed across five themed folders in `analysis/`: all 22 R/Rmd source modules; see [folder index](../analysis/README.md).
 - `data/chikungunya/CHIKBR15.dbc` through `CHIKBR25.dbc`: historical raw SINAN extracts. Primary model uses **2016–2025**.
 - `data/zika/zikadata.zip`: old Zika input retained for historical provenance; **not a primary-model covariate**.
 - `archive/Chikungunya Spatioltemporal Analysis.Rmd`: legacy exploratory notebook.
@@ -61,6 +61,6 @@ This document compares the **files committed to this repository** with explicit 
 - **`.gitignore` currently ignores `*.rds` and `*.adj`:** an intentional source-only default. If you choose to version smaller RDS/adjacency artifacts, review that rule or deliberately force-add them. GitHub’s web uploader is a separate workflow.
 - Directories such as `outputs/` or `data/processed/` are recommendations, not claims that those results have already been uploaded.
 
-The population panel and most analysis files share relative paths. **Keep the working directory at `analysis/` after the reorganization** unless you have intentionally refactored these paths.
+The population panel and most analysis files share relative paths. **Keep the working directory at `analysis/` after the reorganization** and set `knit_root_dir` for nested Rmd files.
 
 See [reproducibility guide](REPRODUCIBILITY.md) and [repository README](../README.md).
