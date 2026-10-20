@@ -1,8 +1,12 @@
 # Shared configuration and packages
 
-# External raw-data locations. Edit these paths for the local machine.
-RAW_DBC_DIR        <- "/Users/wuchangpengyuyan/Desktop"
-IBGE_DOWNLOADS_DIR <- "/Users/wuchangpengyuyan/Downloads"
+# Run numbered scripts with analysis/ as the working directory.
+# Raw and cleaned input datasets are committed to data/ in this repository.
+PROJECT_ROOT <- normalizePath("..", winslash = "/", mustWork = TRUE)
+RAW_DBC_DIR <- file.path(PROJECT_ROOT, "data")
+CHIK_DATA_DIR <- file.path(RAW_DBC_DIR, "chikungunya")
+IBGE_DOWNLOADS_DIR <- file.path(RAW_DBC_DIR, "population")
+stopifnot(dir.exists(CHIK_DATA_DIR), dir.exists(IBGE_DOWNLOADS_DIR))
 
 # Data import / wrangling
 library(read.dbc)

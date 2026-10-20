@@ -1,6 +1,6 @@
 # Analysis modules (2016–2025)
 
-**00_setup.R** is the shared configuration file. Files 01–21 are grouped by topic without modification to their analytical code.
+**00_setup.R** is the shared configuration file. Files 01–21 are grouped by topic, preserving all statistical model specifications. Only the shared source-data paths in Files 00, 01 and 18 were adjusted to point to the checked-in CHIK and IBGE datasets.
 
 | Folder | Scripts | Focus |
 |---|---|---|
@@ -30,4 +30,4 @@ source("01_data_and_population/02_population_panel.R")
 
 **Important:** Clicking Knit directly in RStudio may use the nested folder as the working directory and fail to locate `00_setup.R`. Setting the working directory once is not sufficient for a plain Knit; use the explicit `knit_root_dir` argument shown above.
 
-These scripts are not automatically independent: some require upstream in-memory objects and saved HPC RDS files. Input and model-output requirements remain unchanged. See [reproducibility](../docs/REPRODUCIBILITY.md) and [file inventory](../docs/DATA_INVENTORY.md).
+These scripts are not automatically independent: some require upstream in-memory objects and saved HPC RDS files. Input-data paths now use repository-relative CHIK and population folders; model-result inputs (including HPC outputs) remain external. See [reproducibility](../docs/REPRODUCIBILITY.md) and [file inventory](../docs/DATA_INVENTORY.md).

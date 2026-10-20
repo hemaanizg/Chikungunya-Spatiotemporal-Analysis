@@ -2,7 +2,7 @@
 
 **Documentation status: October 2026.** This guide describes the code now committed to the repository. It is **not a claim that a clean clone runs end-to-end without additional inputs**. The main model and several downstream analyses rely on fitted objects produced on Cornell Seneca HPC or saved in a local R session.
 
-The common configuration `00_setup.R` is at the top of [`analysis/`](../analysis/), and 01–21 have been placed in five thematic subfolders. **The scripts' analytical content is unchanged.** Keep `analysis/` as your working directory and use `knit_root_dir` when rendering nested R Markdown files; see the [folder index](../analysis/README.md).
+The common configuration `00_setup.R` is at the top of [`analysis/`](../analysis/), and 01–21 have been placed in five thematic subfolders. **The scripts' model formulas and analytic logic are unchanged; only input paths in 00, 01 and 18 were aligned with the checked-in raw and population files.** Keep `analysis/` as your working directory and use `knit_root_dir` when rendering nested R Markdown files; see the [folder index](../analysis/README.md).
 
 The primary modeling window is **January 2016 through December 2025** (120 months across 5,570 municipalities). The separate 2026 assessment uses held-out, provisional surveillance records.
 
@@ -14,7 +14,7 @@ cd Chikungunya-Spatiotemporal-Analysis
 cd analysis   # Required for source("00_setup.R") and relative saved-object paths
 ```
 
-These R/Rmd modules live in thematic subfolders of `analysis/`. The older notebook has been moved to [`archive/`](../archive/) for historical reference and **does not replace** the revised modules.
+These R/Rmd modules live in thematic subfolders of `analysis/`. The superseded original exploratory notebook was removed from `main` and is recoverable in the [historical backup branch](https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis/tree/backup/pre-code-replacement-2026-10-20); it does **not** replace these modules.
 
 ### Running an R Markdown notebook in a subfolder
 

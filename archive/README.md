@@ -1,5 +1,5 @@
-# Historical notebook
+# Historical analysis archive
 
-The original `Chikungunya Spatioltemporal Analysis.Rmd` is retained for provenance. It predates the revised 2016–2025 modules and contains older case-definition, model and machine-specific path choices.
+The superseded exploratory notebook was removed from `main` as requested. It is preserved in Git history and the [pre-replacement backup branch](https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis/tree/backup/pre-code-replacement-2026-10-20).
 
-**Do not use this file as the primary or final reproducible implementation.** Current code is in [analysis](../analysis/); see the [repository overview](../README.md).
+The current 00–21 analysis modules are organized under [`analysis/`](../analysis/); do not treat the historical notebook as the current implementation.

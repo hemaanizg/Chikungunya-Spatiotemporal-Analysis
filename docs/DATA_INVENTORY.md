@@ -8,7 +8,7 @@ This document compares the **files committed to this repository** with explicit 
 - `data/chikungunya/CHIKBR15.dbc` through `CHIKBR26.dbc`: all 12 raw annual SINAN extracts; **2016–2025** are primary and **2026** is separately held out.
 - `data/population/ibge_pop_age_2015_clean.csv` through `ibge_pop_age_2025_clean.csv`: 11 cleaned IBGE annual age-population inputs; **2016–2025** are used in File 02. 2015 is retained for provenance.
 - `data/zika/zikadata.zip`: old Zika input retained for historical provenance; **not a primary-model covariate**.
-- `archive/Chikungunya Spatioltemporal Analysis.Rmd`: legacy exploratory notebook.
+- The superseded legacy exploratory notebook is no longer on `main`, but is recoverable in the [historical backup branch](https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis/tree/backup/pre-code-replacement-2026-10-20).
 - Documentation: README, reproducibility guide, .gitignore.
 
 ## Remaining missing or not versioned: highest priority

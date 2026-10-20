@@ -4,7 +4,7 @@
 
 ![R](https://img.shields.io/badge/analysis-R-276DC3?logo=r&logoColor=white) ![INLA](https://img.shields.io/badge/Bayesian%20inference-INLA-475569) ![Status](https://img.shields.io/badge/status-manuscript%20revision-informational) ![Data](https://img.shields.io/badge/data-SINAN%20%2B%20IBGE-64748b)
 
-> **Repository status (October 2026):** The 22 revised source modules are organized in [`analysis/`](analysis/), historical raw inputs remain in [`data/`](data/), and the original exploratory notebook is archived under [`archive/`](archive/). The raw 2015–2026 chikungunya files and annual 2015–2025 IBGE age-population CSVs are now included. The pipeline still depends on saved model/prediction outputs; see [reproducibility](docs/REPRODUCIBILITY.md) and the [file inventory](docs/DATA_INVENTORY.md) before running.
+> **Repository status (October 2026):** All 22 author-confirmed analysis modules (00–21) are organized under [`analysis/`](analysis/); historical SINAN, cleaned IBGE age-population inputs and provisional held-out 2026 surveillance files remain under [`data/`](data/). The superseded exploratory notebook was removed from `main` and remains recoverable in the [historical backup branch](https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis/tree/backup/pre-code-replacement-2026-10-20). Saved HPC model fits and some downstream outputs are not yet deposited; consult [reproducibility](docs/REPRODUCIBILITY.md) and the [file inventory](docs/DATA_INVENTORY.md).
 
 ## Project overview
 
@@ -75,7 +75,7 @@ Raw chikungunya `.dbc` files **2015–2026**, including the separately held-out 
 
 ### Public repository: revised code now available
 
-All **22 revised numbered source modules** are committed under [`analysis/`](analysis/), while the [original exploratory notebook](archive/Chikungunya%20Spatioltemporal%20Analysis.Rmd) is retained in [`archive/`](archive/) for historical reference. That older notebook is retained only for historical context.
+All **22 current numbered R/R Markdown modules** are committed under [`analysis/`](analysis/), organized into five themed folders. The superseded original exploratory notebook is available from the [historical backup branch](https://github.com/hemaanizg/Chikungunya-Spatiotemporal-Analysis/tree/backup/pre-code-replacement-2026-10-20), but no longer appears on `main`.
 
 | Stage | Files | Description |
 |---|---|---|
@@ -99,7 +99,7 @@ analysis/
 └── 05_forecasting_and_validation/     # 14, 15, 17, 18, 19
 ```
 
-All modules retain their original names and byte-identical code. Because most scripts still call `source("00_setup.R")`, **run them from `analysis/` as the working directory**, and explicitly pass `knit_root_dir` for nested Rmd files. See [analysis instructions](analysis/README.md).
+All 19 research modules other than 00, 01 and 18 retain their original code bytes. For 00, 01 and 18, only repository-relative input paths were adjusted; no model formulas or case filters were changed. Because most scripts still call `source("00_setup.R")`, **run them from `analysis/` as the working directory**, and explicitly pass `knit_root_dir` for nested Rmd files. See [analysis instructions](analysis/README.md).
 
 ### Reproducing the revised work
 
