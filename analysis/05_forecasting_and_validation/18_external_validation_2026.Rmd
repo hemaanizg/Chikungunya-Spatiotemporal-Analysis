@@ -51,11 +51,7 @@ ROLLING_2025_PATH <- file.path(
 )
 
 # Raw 2026 DBC used only for external validation.
-CHIK26_PATH <- file.path(
-  RAW_DBC_DIR,
-  "CHIKdata",
-  "CHIKBR26.dbc"
-)
+CHIK26_PATH <- file.path(CHIK_DATA_DIR, "CHIKBR26.dbc")
 
 cat("Top-third municipality count:", TOP_N, "\n")
 cat("Priority ranking:", PRIORITY_PATH, "\n")
@@ -112,7 +108,7 @@ if (!exists("Chik_2026")) {
   if (!file.exists(CHIK26_PATH)) {
     stop(
       "CHIKBR26.dbc not found at:\n", CHIK26_PATH,
-      "\nCheck RAW_DBC_DIR in 00_setup.R."
+      "\nCheck CHIK_DATA_DIR in 00_setup.R."
     )
   }
 

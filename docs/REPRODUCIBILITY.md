@@ -48,20 +48,23 @@ Install other dependencies as needed, then run `source("00_setup.R")` to identif
 
 ## 3. Raw input files and paths
 
-**The current scripts have local absolute paths that must be adapted on another machine. After moving the modules, put newly generated `pop_panel_total.rds` and `pop_panel_age.rds` in the `analysis/` working directory, or adjust relevant relative paths. Existing local RDS files outside that directory are **not** automatically moved.** In `00_setup.R`, set:
+The original CHIK and annual cleaned IBGE files have now been committed into the repository. The updated `analysis/00_setup.R` resolves source locations **relative to the repository root**, with the shared working directory set to `analysis/`:
 
 ```r
-RAW_DBC_DIR        <- "/your/local/raw-inputs"
-IBGE_DOWNLOADS_DIR <- "/your/local/ibge-inputs"
+PROJECT_ROOT <- normalizePath('..', winslash = '/', mustWork = TRUE)
+RAW_DBC_DIR <- file.path(PROJECT_ROOT, 'data')
+CHIK_DATA_DIR <- file.path(RAW_DBC_DIR, 'chikungunya')
+IBGE_DOWNLOADS_DIR <- file.path(RAW_DBC_DIR, 'population')
 ```
 
-The file `01_data_import_cleaning.Rmd` expects `CHIKBR16.dbc` through `CHIKBR25.dbc` inside `file.path(RAW_DBC_DIR, "CHIKdata")`. It also currently loads `CHIKBR26.dbc` in its import chunk to create a **separate** `Chik_2026` object; the 2026 data are *not* appended to `Chik_total`. **The public repository does not currently include `CHIKBR26.dbc`, so running File 01 unchanged will fail unless that file is supplied.**
+- **CHIK raw data:** `data/chikungunya/CHIKBR15.dbc` through `CHIKBR26.dbc`. File 01 reads 2016–2025 into `Chik_total` and retains `CHIKBR26.dbc` as a separate object for held-out assessment; File 18 uses 2026 separately.
+- **Population:** `data/population/ibge_pop_age_2015_clean.csv` through `ibge_pop_age_2025_clean.csv`. File 02 reads **2016–2025 only**, checks coverage/reconciliation, and saves the derived `pop_panel_total.rds` and `pop_panel_age.rds` to the current working directory (normally `analysis/`).
+- **2015 data:** Both CHIK 2015 and IBGE 2015 remain in the repository for historical provenance, not as main 2016–2025 model inputs.
+- **Data provenance still needed:** cleaned IBGE CSV transformation details, original source tables, and 2026 SINAN extraction/cut-off date must be documented. The presence of source files does not establish full reproducibility or representativeness.
 
-For reference, historical `CHIKBR15.dbc` through `CHIKBR25.dbc` are already checked into `data/chikungunya/`. The revised File 01 **does not automatically use this location**: either provide the input layout it expects or adapt the paths. The repository layout is unchanged for raw `data/`; it is **not** the same as the default `RAW_DBC_DIR/CHIKdata` specified in the script. Sources: [DATASUS](https://datasus.saude.gov.br/transferencia-de-arquivos/).
+The 2022 race/ethnicity module (`21_...`) includes its Census denominators in the code. Read its source notes and quality-control checks before interpreting rates.
 
-`02_population_panel.R` expects ten cleaned IBGE municipality-by-age files named `ibge_pop_age_2016_clean.csv` through `ibge_pop_age_2025_clean.csv` in `IBGE_DOWNLOADS_DIR`. These cleaned inputs are **not included** in this repository. File 02 verifies all 5,570 municipalities for every year and saves `pop_panel_total.rds` and `pop_panel_age.rds` in the current working directory. Source: [IBGE population data](https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html).
-
-The 2022 race/ethnicity module (`21_...`) includes its Census denominators in the code. Read its source notes and quality-control checks before interpreting its rates.
+**Important:** Saved model results and forecast outputs remain in external folders such as `~/Downloads/inla_results/`, so the full analysis does not yet run end-to-end from a fresh clone.
 
 ## 4. Execution order and expected intermediate objects
 
@@ -109,7 +112,7 @@ rolling_origin/predictions/forecast_annual_predict_2017.csv ... 2025.csv
 secondary_forecast_2016_2022/predictions/forecast_secondary_2024_2025.csv
 ```
 
-See the exact checks at the beginning of Files 06, 13–20 for the authoritative, module-specific list. **Saved fits, prediction tables, and external 2026 data needed for full reproduction have not been committed to this repository.**
+See the exact checks at the beginning of Files 06, 13–20 for the authoritative, module-specific list. **Saved fits and prediction tables needed for full reproduction have not all been committed to this repository; the external 2026 DBC input is now versioned under `data/chikungunya/`.**
 
 **File 06:** `params$run_heavy_models` defaults to `false`, and the primary `inla()` call is presently commented out. This notebook is in **saved-fit recovery mode**, not an automated refitting entrypoint. Do not assume that setting `run_heavy_models: true` is sufficient to refit the full model.
 

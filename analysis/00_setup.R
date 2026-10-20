@@ -1,8 +1,13 @@
 # Shared configuration and packages
 
-# External raw-data locations. Edit these paths for the local machine.
-RAW_DBC_DIR        <- "/Users/wuchangpengyuyan/Desktop"
-IBGE_DOWNLOADS_DIR <- "/Users/wuchangpengyuyan/Downloads"
+# Repository-relative source data paths.
+# Execute numbered modules from analysis/ (see analysis/README.md).
+# No Mac-specific Downloads/Desktop path is needed for checked-in inputs.
+PROJECT_ROOT <- normalizePath('..', winslash = '/', mustWork = TRUE)
+RAW_DBC_DIR <- file.path(PROJECT_ROOT, 'data')
+CHIK_DATA_DIR <- file.path(RAW_DBC_DIR, 'chikungunya')
+IBGE_DOWNLOADS_DIR <- file.path(RAW_DBC_DIR, 'population')
+stopifnot(dir.exists(CHIK_DATA_DIR), dir.exists(IBGE_DOWNLOADS_DIR))
 
 # Data import / wrangling
 library(read.dbc)

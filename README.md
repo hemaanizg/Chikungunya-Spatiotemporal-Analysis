@@ -4,7 +4,7 @@
 
 ![R](https://img.shields.io/badge/analysis-R-276DC3?logo=r&logoColor=white) ![INLA](https://img.shields.io/badge/Bayesian%20inference-INLA-475569) ![Status](https://img.shields.io/badge/status-manuscript%20revision-informational) ![Data](https://img.shields.io/badge/data-SINAN%20%2B%20IBGE-64748b)
 
-> **Repository status (October 2026):** The 22 revised source modules are organized in [`analysis/`](analysis/), historical raw inputs remain in [`data/`](data/), and the original exploratory notebook is archived under [`archive/`](archive/). The pipeline still depends on external IBGE inputs and saved model/prediction objects; see [reproducibility](docs/REPRODUCIBILITY.md) and the [file inventory](docs/DATA_INVENTORY.md) before running.
+> **Repository status (October 2026):** The 22 revised source modules are organized in [`analysis/`](analysis/), historical raw inputs remain in [`data/`](data/), and the original exploratory notebook is archived under [`archive/`](archive/). The raw 2015–2026 chikungunya files and annual 2015–2025 IBGE age-population CSVs are now included. The pipeline still depends on saved model/prediction outputs; see [reproducibility](docs/REPRODUCIBILITY.md) and the [file inventory](docs/DATA_INVENTORY.md) before running.
 
 ## Project overview
 
@@ -69,7 +69,7 @@ Separately, **2026 surveillance is held out of the primary 2016–2025 model** a
 | IBGE / `geobr` | Municipality boundaries and health-region geography | [`geobr` project](https://github.com/ipeaGIT/geobr) |
 | IBGE 2022 Census | Age and race/ethnicity population composition for relevant analyses | [IBGE Census](https://censo2022.ibge.gov.br/) |
 
-Raw historical chikungunya `.dbc` inputs are present under [`data/chikungunya/`](data/chikungunya/); the archived Zika dataset is under [`data/zika/`](data/zika/). **The revised primary model does not use the old nationally aggregated Zika covariate.** A separate 2026 source, required by the revision validation workflow, is not currently part of this public repository.
+Raw chikungunya `.dbc` files **2015–2026**, including the separately held-out **CHIKBR26.dbc**, are versioned in [`data/chikungunya/`](data/chikungunya/). Cleaned IBGE municipality-age CSVs **2015–2025** are in [`data/population/`](data/population/). The 2015 population file is retained for provenance; the revised population panel currently reads **2016–2025**. The old Zika archive is in [`data/zika/`](data/zika/); the revised primary model does **not** use a nationally aggregated Zika covariate.
 
 ## Code availability and reproducibility
 
@@ -108,7 +108,7 @@ All modules retain their original names and byte-identical code. Because most sc
 Important current requirements:
 
 - The source files have been published; **required generated RDS/CSV outputs and HPC fits have not all been published**.
-- File 01 currently also reads a separate **2026 DBC file** that is not in the deposited historical 2015–2025 raw input collection. The 2026 data are held out of the primary study period.
+- File 01 reads the separately held-out **2026 DBC file** from `data/chikungunya/`, but never combines its cases with the main 2016–2025 dataset.
 - File 02 requires ten cleaned IBGE municipality-by-age CSVs not in this GitHub repository.
 - Some notebooks assume objects created in the same interactive R session; others load objects from `~/Downloads/inla_results/`. **After cloning, set the working directory to `analysis/` when running the numbered scripts** so that `source("00_setup.R")` and relative inputs resolve together.
 - File 06 currently loads a previously computed primary model; its expensive fitting call is commented out. File 17 likewise scores saved HPC forecasts.
