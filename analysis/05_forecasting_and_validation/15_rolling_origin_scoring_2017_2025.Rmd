@@ -784,9 +784,211 @@ cat(
 )
 
 
+```
+
+```{r}
+
+
+
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+library(scales)
+
+# ============================================================
+# 1. Rebuild plotting data from the ORIGINAL results
+# ============================================================
+
+stopifnot(exists("yearly_performance"))
+
+cols <- c(
+  "Rolling-origin forecast" = "#2477B4",
+  "Last-year cases" = "#E47D39",
+  "Age-only" = "#16A085"
+)
+
+main_long <- yearly_performance %>%
+  mutate(rule = trimws(as.character(rule))) %>%
+  select(
+    target_year,
+    rule,
+    cases_capture_share,
+    deaths_capture_share
+  ) %>%
+  pivot_longer(
+    cols = c(cases_capture_share, deaths_capture_share),
+    names_to = "outcome",
+    values_to = "capture_share"
+  ) %>%
+  mutate(
+    rule = factor(rule, levels = names(cols))
+  )
+
+stopifnot(
+  nrow(main_long) == 54,
+  !anyNA(main_long$rule),
+  !anyNA(main_long$capture_share)
+)
+
+theme_fig6 <- theme_classic(
+  base_size = 11,
+  base_family = "Helvetica"
+) +
+  theme(
+    plot.title = element_blank(),
+    plot.subtitle = element_blank(),
+    plot.tag = element_text(face = "bold", size = 12),
+    axis.text = element_text(size = 9),
+    axis.title = element_text(size = 10),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    plot.margin = margin(8, 10, 5, 8)
+  )
+
+# ============================================================
+# 2. Main performance curves
+# ============================================================
+
+make_main <- function(outcome_name, panel_tag, y_label) {
+
+  main_long %>%
+    filter(outcome == outcome_name) %>%
+    ggplot(aes(
+      x = target_year,
+      y = capture_share,
+      color = rule,
+      group = rule
+    )) +
+    geom_line(linewidth = 0.9) +
+    geom_point(size = 2.2) +
+    scale_color_manual(
+      values = cols,
+      breaks = names(cols),
+      drop = FALSE
+    ) +
+    scale_x_continuous(breaks = 2017:2025) +
+    scale_y_continuous(
+      limits = c(0, 1),
+      breaks = seq(0, 1, 0.25),
+      labels = percent_format(accuracy = 1)
+    ) +
+    labs(
+      x = NULL,
+      y = y_label,
+      tag = panel_tag
+    ) +
+    theme_fig6 +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    )
+}
+
+p_main_cases <- make_main(
+  "cases_capture_share",
+  "a",
+  "Share of cases captured"
+)
+
+p_main_deaths <- make_main(
+  "deaths_capture_share",
+  "b",
+  "Share of deaths captured"
+)
+
+# ============================================================
+# 3. Forecast advantage in percentage points
+# ============================================================
+
+delta_data <- main_long %>%
+  filter(
+    rule %in% c(
+      "Rolling-origin forecast",
+      "Last-year cases"
+    )
+  ) %>%
+  mutate(rule = as.character(rule)) %>%
+  pivot_wider(
+    names_from = rule,
+    values_from = capture_share
+  ) %>%
+  mutate(
+    delta_pp = 100 * (
+      `Rolling-origin forecast` -
+      `Last-year cases`
+    ),
+    direction = if_else(
+      delta_pp >= 0,
+      "Forecast higher",
+      "Last-year higher"
+    )
+  )
+
+make_delta <- function(outcome_name) {
+
+  delta_data %>%
+    filter(outcome == outcome_name) %>%
+    ggplot(aes(
+      x = target_year,
+      y = delta_pp,
+      fill = direction
+    )) +
+    geom_hline(
+      yintercept = 0,
+      linetype = "dashed",
+      color = "grey50",
+      linewidth = 0.4
+    ) +
+    geom_col(width = 0.65) +
+    scale_fill_manual(
+      values = c(
+        "Forecast higher" = "#2477B4",
+        "Last-year higher" = "#E47D39"
+      ),
+      guide = "none"
+    ) +
+    scale_x_continuous(breaks = 2017:2025) +
+    scale_y_continuous(
+      limits = c(-12, 12),
+      breaks = c(-10, -5, 0, 5, 10),
+      labels = function(x) {
+        ifelse(x > 0, paste0("+", x), as.character(x))
+      }
+    ) +
+    labs(
+      x = "Target year",
+      y = "Forecast − last-year difference"
+    ) +
+    theme_fig6
+}
+
+p_delta_cases <- make_delta("cases_capture_share")
+p_delta_deaths <- make_delta("deaths_capture_share")
+
+# ============================================================
+# 4. Final Figure 6
+# ============================================================
+
+fig6_improved <- (
+  (p_main_cases | p_main_deaths) /
+  (p_delta_cases | p_delta_deaths)
+) +
+  plot_layout(
+    heights = c(1.65, 1),
+    guides = "collect"
+  ) &
+  theme(legend.position = "bottom")
+
+print(fig6_improved)
 
 
 ```
+
+
+
 
 # Interpretation guardrails
 
